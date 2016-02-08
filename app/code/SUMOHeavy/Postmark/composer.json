@@ -1,0 +1,37 @@
+{
+    "name": "sumoheavy/magento2-postmark",
+    "description": "Postmark for Magento 2",
+    "type": "magento2-module",
+    "version": "1.0.0",
+    "authors": [
+        {
+            "name": "Szymon Wlodarski",
+            "email": "szymon.wlodarski@polcode.com",
+            "homepage": "http://www.sumoheavy.com",
+            "role": "Developer"
+        }
+    ],
+    "license": [
+        "OSL-3.0"
+    ],
+    "support": {
+        "email": "support@sumoheavy.com",
+        "wiki": "https://github.com/sumoheavy/magento2-postmark/wiki",
+        "forum": "https://github.com/sumoheavy/magento2-postmark/issues"
+    },
+    "require": {
+        "php": "~5.5.0|~5.6.0|~7.0.0",
+        "magento/module-backend": "100.0.*",
+        "magento/module-email": "100.0.*",
+        "magento/module-store": "100.0.*",
+        "magento/framework": "100.0.*"
+    },
+    "autoload": {
+        "files": [
+            "registration.php"
+        ],
+        "psr-4": {
+            "SUMOHeavy\\Postmark\\": ""
+        }
+    }
+}
