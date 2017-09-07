@@ -18,7 +18,6 @@
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
-
 namespace SUMOHeavy\Postmark\Helper;
 
 class Data extends \Magento\Framework\App\Helper\AbstractHelper
@@ -46,8 +45,7 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
         \Magento\Framework\App\Helper\Context $context,
         \Psr\Log\LoggerInterface $logger,
         \Magento\Framework\ObjectManagerInterface $objectManager
-    )
-    {
+    ) {
         $this->_logger = $logger;
         $this->_objectManager = $objectManager;
         $this->_subscribed = array();
