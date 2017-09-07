@@ -1,0 +1,50 @@
+version: 2
+
+jobs:
+  build:
+    docker:
+      - image: notnoopci/php:5.6-browsers
+      - image: mysql:5.7
+        environment:
+          - MYSQL_ALLOW_EMPTY_PASSWORD=true
+          - MYSQL_USER=ubuntu
+          - MYSQL_PASSWORD=ubuntu
+          - MYSQL_DATABASE=circle_test
+    working_directory: ~/magento
+    environment:
+      - TZ: "/usr/share/zoneinfo/America/New_York"
+    steps:
+      - run:
+          name: Install System Dependencies
+          command: |
+            sudo apt-get update -y
+            sudo apt-get install -y libpng-dev libjpeg-dev libfreetype6-dev libmcrypt-dev libicu-dev libxslt-dev
+      - run:
+          name: Install PHP Dependencies
+          command: |
+            sudo docker-php-ext-install mcrypt intl xsl zip pdo_mysql
+            sudo docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/
+            sudo docker-php-ext-install gd
+            sudo docker-php-ext-enable xdebug
+      - checkout
+      - run:
+          name: Wait for db
+          command: dockerize -wait tcp://localhost:3306 -timeout 1m
+      - run:
+          name: Install Magento
+          command: .circleci/commands/magento-install.sh
+      - run:
+          name: Install Module
+          command: .circleci/commands/module-install.sh
+      - run:
+          name: Setup tests
+          command: .circleci/commands/setup-tests.sh
+      - run:
+          name: Run tests
+          command: |
+            cd .circleci/build
+            php -f vendor/bin/phpunit -- --coverage-html "/tmp/artifacts/phpunit/coverage/" --log-junit "/tmp/test-results/phpunit/junit.xml"
+      - store_artifacts:
+          path: /tmp/artifacts
+      - store_test_results:
+          path: /tmp/test-results
