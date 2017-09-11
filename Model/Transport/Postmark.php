@@ -18,7 +18,6 @@
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
-
 namespace SUMOHeavy\Postmark\Model\Transport;
 
 class Postmark extends \Zend_Mail_Transport_Abstract
@@ -27,16 +26,19 @@ class Postmark extends \Zend_Mail_Transport_Abstract
      * Postmark API Uri
      */
     const API_URI = 'https://api.postmarkapp.com/';
+
     /**
      * Limit of recipients per message in total.
      */
     const RECIPIENTS_LIMIT = 20;
+
     /**
      * Postmark API key
      *
      * @var string
      */
     protected $_apiKey = null;
+
     /**
      * HTTP client instance
      *
@@ -44,10 +46,19 @@ class Postmark extends \Zend_Mail_Transport_Abstract
      */
     protected $_client = null;
 
-    public function __construct($apiKey = '')
-    {
+    /**
+     * @var \SUMOHeavy\Postmark\Helper\Data
+     */
+    protected $_helper;
+
+    public function __construct(
+        \SUMOHeavy\Postmark\Helper\Data $helper
+    ) {
+        $this->_helper = $helper;
+        $apiKey = $this->_helper->getApiKey();
+
         if (empty($apiKey)) {
-            throw new Exception( __CLASS__ . ' requires API key' );
+            throw new Exception(__CLASS__ . ' requires API key');
         }
         $this->_apiKey = $apiKey;
     }
@@ -73,11 +84,12 @@ class Postmark extends \Zend_Mail_Transport_Abstract
             'Attachments' => $this->getAttachments(),
         );
         $response = $this->prepareHttpClient('/email')
-                         ->setMethod(\Zend_Http_Client::POST)
-                         ->setRawData(\Zend_Json::encode($data))
-                         ->request();
+            ->setMethod(\Zend_Http_Client::POST)
+            ->setRawData(\Zend_Json::encode($data))
+            ->request();
         return $this->_parseResponse($response);
     }
+
     /**
      * Get a http client instance
      *
@@ -88,6 +100,7 @@ class Postmark extends \Zend_Mail_Transport_Abstract
     {
         return $this->getHttpClient()->setUri(self::API_URI . $path);
     }
+
     /**
      * Returns http client object
      *
@@ -102,10 +115,11 @@ class Postmark extends \Zend_Mail_Transport_Abstract
                 'X-Postmark-Server-Token' => $this->_apiKey,
             );
             $this->_client->setMethod(\Zend_Http_Client::GET)
-                         ->setHeaders($headers);
+                ->setHeaders($headers);
         }
         return $this->_client;
     }
+
     /**
      * Parse response object and check for errors
      *
@@ -121,7 +135,7 @@ class Postmark extends \Zend_Mail_Transport_Abstract
                     break;
                 case 422:
                     $error = \Zend_Json::decode($response->getBody());
-                    if(is_object($error)) {
+                    if (is_object($error)) {
                         throw new Exception(sprintf('Postmark request error: Unprocessable Entity - API error code %s, message: %s', $error->ErrorCode, $error->Message));
                     } else {
                         throw new Exception(sprintf('Postmark request error: Unprocessable Entity - API error code %s, message: %s', $error['ErrorCode'], $error['Message']));
@@ -136,6 +150,7 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         }
         return \Zend_Json::decode($response->getBody());
     }
+
     /**
      * Get mail From
      *
@@ -146,14 +161,15 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         $headers = $this->_mail->getHeaders();
         $from = array();
         if (isset($headers['From'])) {
-            foreach($headers['From'] as $key => $val) {
-                if(empty($key) || $key != 'append') {
+            foreach ($headers['From'] as $key => $val) {
+                if (empty($key) || $key != 'append') {
                     $from[] = $val;
                 }
             }
         }
         return implode(',', $from);
     }
+
     /**
      * Get mail To
      *
@@ -164,14 +180,15 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         $headers = $this->_mail->getHeaders();
         $to = array();
         if (isset($headers['To'])) {
-            foreach($headers['To'] as $key => $val) {
-                if(empty($key) || $key != 'append') {
+            foreach ($headers['To'] as $key => $val) {
+                if (empty($key) || $key != 'append') {
                     $to[] = $val;
                 }
             }
         }
         return implode(',', $to);
     }
+
     /**
      * Get mail Cc
      *
@@ -182,8 +199,8 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         $headers = $this->_mail->getHeaders();
         $cc = array();
         if (isset($headers['Cc'])) {
-            foreach($headers['Cc'] as $key => $val) {
-                if(empty($key) || $key != 'append') {
+            foreach ($headers['Cc'] as $key => $val) {
+                if (empty($key) || $key != 'append') {
                     $cc[] = $val;
                 }
             }
@@ -193,6 +210,7 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         }
         return implode(',', $cc);
     }
+
     /**
      * Get mail Bcc
      *
@@ -203,8 +221,8 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         $headers = $this->_mail->getHeaders();
         $bcc = array();
         if (isset($headers['Bcc'])) {
-            foreach($headers['Bcc'] as $key => $val) {
-                if(empty($key) || $key != 'append') {
+            foreach ($headers['Bcc'] as $key => $val) {
+                if (empty($key) || $key != 'append') {
                     $bcc[] = $val;
                 }
             }
@@ -214,6 +232,7 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         }
         return implode(',', $bcc);
     }
+
     /**
      * Get mail Reply To
      *
@@ -224,14 +243,15 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         $headers = $this->_mail->getHeaders();
         $replyTo = array();
         if (isset($headers['Reply-To'])) {
-            foreach($headers['Reply-To'] as $key => $val) {
-                if(empty($key) || $key != 'append') {
+            foreach ($headers['Reply-To'] as $key => $val) {
+                if (empty($key) || $key != 'append') {
                     $replyTo[] = $val;
                 }
             }
         }
         return implode(',', $replyTo);
     }
+
     /**
      * Get mail subject
      *
@@ -239,11 +259,12 @@ class Postmark extends \Zend_Mail_Transport_Abstract
      */
     public function getSubject()
     {
-        if(function_exists('imap_utf8')) {
+        if (function_exists('imap_utf8')) {
             return imap_utf8($this->_mail->getSubject());
         }
         return $this->_mail->getSubject();
     }
+
     /**
      * Get mail body - html
      *
@@ -258,6 +279,7 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         }
         return '';
     }
+
     /**
      * Get mail body - plain
      *
@@ -272,6 +294,7 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         }
         return '';
     }
+
     /**
      * Get mail Tag
      *
@@ -282,14 +305,15 @@ class Postmark extends \Zend_Mail_Transport_Abstract
         $headers = $this->_mail->getHeaders();
         $tags = array();
         if (isset($headers['postmark-tag'])) {
-            foreach($headers['postmark-tag'] as $key => $val) {
-                if(empty($key) || $key != 'append') {
+            foreach ($headers['postmark-tag'] as $key => $val) {
+                if (empty($key) || $key != 'append') {
                     $tags[] = $val;
                 }
             }
         }
         return implode(',', $tags);
     }
+
     /**
      * Get mail Attachments
      *
@@ -298,11 +322,11 @@ class Postmark extends \Zend_Mail_Transport_Abstract
     public function getAttachments()
     {
         $attachments = array();
-        if($this->_mail->hasAttachments) {
+        if ($this->_mail->hasAttachments) {
             $parts = $this->_mail->getParts();
-            if(is_array($parts)) {
+            if (is_array($parts)) {
                 $i = 0;
-                foreach($parts as $part) {
+                foreach ($parts as $part) {
                     $attachments[$i] = array(
                         'ContentType' => $part->type,
                         'Name' => $part->filename,
@@ -313,5 +337,10 @@ class Postmark extends \Zend_Mail_Transport_Abstract
             }
         }
         return $attachments;
+    }
+
+    public function setMail(\Zend_Mail $mail)
+    {
+        $this->_mail = $mail;
     }
 }

@@ -18,7 +18,6 @@
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
-
 namespace SUMOHeavy\Postmark\Model;
 
 class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Framework\Mail\TransportInterface
@@ -34,19 +33,25 @@ class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Fr
     protected $_helper;
 
     /**
+     * @var \SUMOHeavy\Postmark\Model\Transport\Postmark
+     */
+    protected $_transportPostmark;
+
+    /**
      * @param \Magento\Framework\Mail\MessageInterface $message
      * @param \SUMOHeavy\Postmark\Helper\Data $helper
      * @param null $parameters
      */
     public function __construct(
         \Magento\Framework\Mail\MessageInterface $message,
+        \SUMOHeavy\Postmark\Model\Transport\Postmark $transportPostmark,
         \SUMOHeavy\Postmark\Helper\Data $helper,
         $parameters = null
-    )
-    {
+    ) {
         $this->_helper  = $helper;
+        $this->_transportPostmark = $transportPostmark;
 
-        if($this->_helper->canUse()) {
+        if ($this->_helper->canUse()) {
             $this->_message = $message;
         } else {
             parent::__construct($message, $parameters);
@@ -61,15 +66,14 @@ class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Fr
      */
     public function sendMessage()
     {
-        if(!$this->_helper->canUse()) {
+        if (!$this->_helper->canUse()) {
             parent::sendMessage();
             return;
         }
 
         try {
-            $api = new \SUMOHeavy\Postmark\Model\Transport\Postmark($this->_helper->getApiKey());
-            $api->send($this->_message);
-        } catch (\Exception $e) {var_dump($e->getMessage());exit();
+            $this->_transportPostmark->send($this->_message);
+        } catch (\Exception $e) {
             throw new \Magento\Framework\Exception\MailException(new \Magento\Framework\Phrase($e->getMessage()), $e);
         }
     }

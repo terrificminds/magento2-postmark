@@ -18,10 +18,8 @@
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
-
 namespace SUMOHeavy\Postmark\Model\Transport;
 
 class Exception extends \Zend_Mail_Exception
 {
-
 }
