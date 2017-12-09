@@ -22,7 +22,7 @@ jobs:
       - run:
           name: Install PHP Dependencies
           command: |
-            sudo docker-php-ext-install mcrypt intl xsl zip pdo_mysql
+            sudo docker-php-ext-install mcrypt intl xsl zip pdo_mysql soap
             sudo docker-php-ext-configure gd --with-freetype-dir=/usr/include/ --with-jpeg-dir=/usr/include/
             sudo docker-php-ext-install gd
             sudo docker-php-ext-enable xdebug
