@@ -20,7 +20,7 @@
  */
 namespace SUMOHeavy\Postmark\Test\Unit\Model\Transport;
 
-class PostmarkTest extends \PHPUnit_Framework_TestCase
+class PostmarkTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var \Zend_Http_Client_Adapter_Interface
@@ -41,13 +41,10 @@ class PostmarkTest extends \PHPUnit_Framework_TestCase
     {
         $this->adapter = new \Zend_Http_Client_Adapter_Test();
 
-        $this->helper = $this->getMock(
-            '\SUMOHeavy\Postmark\Helper\Data',
-            [],
-            [],
-            '',
-            false
-        );
+        $this->helper = $this->getMockBuilder(\SUMOHeavy\Postmark\Helper\Data::class)
+            ->setMethods(['getApiKey'])
+            ->disableOriginalConstructor()
+            ->getMock();
 
         $this->helper->expects($this->once())
             ->method('getApiKey')

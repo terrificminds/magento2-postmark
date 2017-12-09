@@ -2,7 +2,7 @@
 
 directory="$PWD/.circleci/build/"
 
-mgver="2.1.8"
+mgver="2.2.1"
 
 if [[ -f "$directory"app/etc/env.php ]]; then
     echo "Magento $mgver appears already to be installed."
