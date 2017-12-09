@@ -3,7 +3,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: notnoopci/php:5.6-browsers
+      - image: notnoopci/php:7.1-apache-node-browsers
       - image: mysql:5.7
         environment:
           - MYSQL_ALLOW_EMPTY_PASSWORD=true
