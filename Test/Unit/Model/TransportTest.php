@@ -20,7 +20,7 @@
  */
 namespace SUMOHeavy\Postmark\Test\Unit\Model;
 
-class TransportTest extends \PHPUnit_Framework_TestCase
+class TransportTest extends \PHPUnit\Framework\TestCase
 {
     /**
      * @var \PHPUnit_Framework_MockObject_MockObject
@@ -37,25 +37,22 @@ class TransportTest extends \PHPUnit_Framework_TestCase
      */
     private $_transportPostmarkMock;
 
-    public function __construct()
+    public function setUp()
     {
-        $this->_helper = $this->getMock(
-            '\SUMOHeavy\Postmark\Helper\Data',
-            [],
-            [],
-            '',
-            false
-        );
+        $this->_helper = $this->getMockBuilder(\SUMOHeavy\Postmark\Helper\Data::class)
+            ->setMethods(['canUse'])
+            ->disableOriginalConstructor()
+            ->getMock();
 
-        $this->_message = $this->getMock('\Magento\Framework\Mail\Message');
+        $this->_message = $this->getMockBuilder(\Magento\Framework\Mail\Message::class)
+            ->disableOriginalConstructor()
+            ->getMock();
 
-        $this->_transportPostmarkMock = $this->getMock(
-            '\SUMOHeavy\Postmark\Model\Transport\Postmark',
-            [],
-            [$this->_helper],
-            '',
-            false
-        );
+        $this->_transportPostmarkMock = $this->getMockBuilder(\SUMOHeavy\Postmark\Model\Transport\Postmark::class)
+            ->setMethods(['send'])
+            ->disableOriginalConstructor()
+            ->setConstructorArgs(['helper' => $this->_helper])
+            ->getMock();
         $this->_transport = new \SUMOHeavy\Postmark\Model\Transport($this->_message, $this->_transportPostmarkMock, $this->_helper);
     }
 
