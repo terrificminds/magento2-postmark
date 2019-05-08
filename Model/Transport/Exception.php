@@ -21,6 +21,6 @@
  */
 namespace Ripen\Postmark\Model\Transport;
 
-class Exception extends \Zend_Mail_Exception
+class Exception extends \Zend\Mail\Exception\RuntimeException
 {
 }

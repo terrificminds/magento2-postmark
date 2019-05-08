@@ -21,39 +21,42 @@
  */
 namespace Ripen\Postmark\Model;
 
+use Zend\Mail\Message as ZendMessage;
+
 class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Framework\Mail\TransportInterface
 {
     /**
-     * @var \Magento\Framework\Mail\MessageInterface
+     * @var \Magento\Framework\Mail\MailMessageInterface
      */
-    protected $_message;
+    protected $message;
 
     /**
      * @var \Ripen\Postmark\Helper\Data
      */
-    protected $_helper;
+    protected $helper;
 
     /**
      * @var \Ripen\Postmark\Model\Transport\Postmark
      */
-    protected $_transportPostmark;
+    protected $transportPostmark;
 
     /**
-     * @param \Magento\Framework\Mail\MessageInterface $message
      * @param \Ripen\Postmark\Helper\Data $helper
+     * @param \Ripen\Postmark\Model\Transport\Postmark $transportPostmark
+     * @param \Magento\Framework\Mail\MailMessageInterface $message
      * @param null $parameters
      */
     public function __construct(
-        \Magento\Framework\Mail\MessageInterface $message,
-        \Ripen\Postmark\Model\Transport\Postmark $transportPostmark,
         \Ripen\Postmark\Helper\Data $helper,
+        \Ripen\Postmark\Model\Transport\Postmark $transportPostmark,
+        \Magento\Framework\Mail\MailMessageInterface $message,
         $parameters = null
     ) {
-        $this->_helper  = $helper;
-        $this->_transportPostmark = $transportPostmark;
+        $this->helper  = $helper;
+        $this->transportPostmark = $transportPostmark;
 
-        if ($this->_helper->canUse()) {
-            $this->_message = $message;
+        if ($this->helper->canUse()) {
+            $this->message = $message;
         } else {
             parent::__construct($message, $parameters);
         }
@@ -67,14 +70,16 @@ class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Fr
      */
     public function sendMessage()
     {
-        if (!$this->_helper->canUse()) {
+        if (! $this->helper->canUse()) {
             parent::sendMessage();
             return;
         }
 
         try {
-            $this->_transportPostmark->send($this->_message);
-        } catch (\Exception $e) {
+            $this->transportPostmark->send(
+                ZendMessage::fromString($this->message->getRawMessage())
+            );
+        } catch (\Throwable $e) {
             throw new \Magento\Framework\Exception\MailException(new \Magento\Framework\Phrase($e->getMessage()), $e);
         }
     }

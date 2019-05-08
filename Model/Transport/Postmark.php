@@ -21,7 +21,10 @@
  */
 namespace Ripen\Postmark\Model\Transport;
 
-class Postmark extends \Zend_Mail_Transport_Abstract
+use Ripen\Postmark\Model\Transport\Exception as PostmarkTransportException;
+use Zend\Mime\Mime;
+
+class Postmark implements \Zend\Mail\Transport\TransportInterface
 {
     /**
      * Postmark API Uri
@@ -38,64 +41,63 @@ class Postmark extends \Zend_Mail_Transport_Abstract
      *
      * @var string
      */
-    protected $_apiKey = null;
-
-    /**
-     * HTTP client instance
-     *
-     * @var \Zend_Http_Client
-     */
-    protected $_client = null;
+    protected $apiKey = null;
 
     /**
      * @var \Ripen\Postmark\Helper\Data
      */
-    protected $_helper;
+    protected $helper;
 
+    /**
+     * @param \Ripen\Postmark\Helper\Data $helper
+     * @throws \Ripen\Postmark\Model\Transport\Exception
+     */
     public function __construct(
         \Ripen\Postmark\Helper\Data $helper
     ) {
-        $this->_helper = $helper;
-        $apiKey = $this->_helper->getApiKey();
+        $this->helper = $helper;
 
+        $apiKey = $this->helper->getApiKey();
         if (empty($apiKey)) {
-            throw new Exception(__CLASS__ . ' requires API key');
+            throw new PostmarkTransportException(__CLASS__ . ' requires API key');
         }
-        $this->_apiKey = $apiKey;
+        $this->apiKey = $apiKey;
     }
 
     /**
      * Send request to Postmark service
      *
      * @link http://developer.postmarkapp.com/developer-build.html
-     * @return stdClass
+     * @param \Zend\Mail\Message $message
+     * @return void
+     * @throws \Ripen\Postmark\Model\Transport\Exception
      */
-    public function _sendMail()
+    public function send(\Zend\Mail\Message $message)
     {
-        $data = array(
-            'From' => $this->getFrom(),
-            'To' => $this->getTo(),
-            'Cc' => $this->getCc(),
-            'Bcc' => $this->getBcc(),
-            'Subject' => $this->getSubject(),
-            'ReplyTo' => $this->getReplyTo(),
-            'HtmlBody' => $this->getBodyHtml(),
-            'TextBody' => $this->getBodyText(),
-            'tag' => $this->getTags(),
-            'Attachments' => $this->getAttachments(),
-        );
+        $recipients = $this->getRecipients($message);
+        $bodyVersions = $this->getBody($message);
+
+        $data = $recipients + [
+            'From' => $this->getFrom($message),
+            'Subject' => $this->getSubject($message),
+            'ReplyTo' => $this->getReplyTo($message),
+            'HtmlBody' => $bodyVersions[Mime::TYPE_HTML],
+            'TextBody' => $bodyVersions[Mime::TYPE_TEXT],
+            'Attachments' => $this->getAttachments($message),
+            'Tag' => $this->getTags($message),
+        ];
         $response = $this->prepareHttpClient('/email')
-            ->setMethod(\Zend_Http_Client::POST)
-            ->setRawData(\Zend_Json::encode($data))
-            ->request();
-        return $this->_parseResponse($response);
+            ->setMethod(\Zend\Http\Request::METHOD_POST)
+            ->setRawBody(json_encode($data))
+            ->send();
+        $this->parseResponse($response);
     }
 
     /**
-     * Get a http client instance
+     * Get a HTTP client instance
      *
      * @param string $path
-     * @return \Zend_Http_Client
+     * @return \Zend\Http\Client
      */
     protected function prepareHttpClient($path)
     {
@@ -103,197 +105,189 @@ class Postmark extends \Zend_Mail_Transport_Abstract
     }
 
     /**
-     * Returns http client object
+     * Returns a HTTP client object
      *
-     * @return \Zend_Http_Client
+     * @return \Zend\Http\Client
      */
     public function getHttpClient()
     {
-        if (null === $this->_client) {
-            $this->_client = new \Zend_Http_Client();
-            $headers = array(
-                'Accept' => 'application/json',
-                'X-Postmark-Server-Token' => $this->_apiKey,
-            );
-            $this->_client->setMethod(\Zend_Http_Client::GET)
-                ->setHeaders($headers);
-        }
-        return $this->_client;
+        $client = new \Zend\Http\Client();
+        $client->setHeaders([
+            'Accept' => 'application/json',
+            'X-Postmark-Server-Token' => $this->apiKey
+        ]);
+
+        return $client;
     }
 
     /**
      * Parse response object and check for errors
      *
-     * @param \Zend_Http_Response $response
-     * @return stdClass
+     * @param \Zend\Http\Response $response
+     * @return array
+     * @throws \Ripen\Postmark\Model\Transport\Exception
      */
-    protected function _parseResponse(\Zend_Http_Response $response)
+    protected function parseResponse(\Zend\Http\Response $response)
     {
-        if ($response->isError()) {
-            switch ($response->getStatus()) {
+        $result = json_decode($response->getBody(), true);
+
+        if ($response->isClientError()) {
+            switch ($response->getStatusCode()) {
                 case 401:
-                    throw new Exception('Postmark request error: Unauthorized - Missing or incorrect API Key header.');
+                    throw new PostmarkTransportException('Postmark request error: Unauthorized - Missing or incorrect API Key header.');
                     break;
                 case 422:
-                    $error = \Zend_Json::decode($response->getBody());
-                    if (is_object($error)) {
-                        throw new Exception(sprintf('Postmark request error: Unprocessable Entity - API error code %s, message: %s', $error->ErrorCode, $error->Message));
-                    } else {
-                        throw new Exception(sprintf('Postmark request error: Unprocessable Entity - API error code %s, message: %s', $error['ErrorCode'], $error['Message']));
-                    }
+                    $errorCode = isset($result['ErrorCode']) ? $result['ErrorCode'] : 'Unknown';
+                    $errorMessage = isset($result['Message']) ? $result['Message'] : 'Unknown';
+                    throw new PostmarkTransportException(sprintf('Postmark request error: Unprocessable Entity - API error code %s, message: %s', $errorCode, $errorMessage));
                     break;
                 case 500:
-                    throw new Exception('Postmark request error: Postmark Internal Server Error');
+                    throw new PostmarkTransportException('Postmark request error: Postmark Internal Server Error');
                     break;
                 default:
-                    throw new Exception('Unknown error during request to Postmark server');
+                    throw new PostmarkTransportException('Unknown error during request to Postmark server');
             }
         }
-        return \Zend_Json::decode($response->getBody());
+
+        if (! is_array($result)) {
+            throw new PostmarkTransportException('Unexpected value returned from server');
+        }
+        return $result;
     }
 
     /**
      * Get mail From
      *
+     * @param \Zend\Mail\Message $message
      * @return string
      */
-    public function getFrom()
+    public function getFrom(\Zend\Mail\Message $message)
     {
-        $headers = $this->_mail->getHeaders();
-        $from = array();
-        if (isset($headers['From'])) {
-            foreach ($headers['From'] as $key => $val) {
-                if (empty($key) || $key != 'append') {
-                    $from[] = $val;
-                }
-            }
+        $sender = $message->getSender();
+        if ($sender instanceof \Zend\Mail\Address\AddressInterface) {
+            return $sender->getEmail();
         }
-        return implode(',', $from);
+
+        $from = $message->getFrom();
+        if (count($from)) {
+            return $from->rewind()->getEmail();
+        }
     }
 
     /**
-     * Get mail To
+     * Get mail recipients (To, Cc, and Bcc)
      *
-     * @return string
+     * @param \Zend\Mail\Message $message
+     * @return array
+     * @throws \Ripen\Postmark\Model\Transport\Exception
      */
-    public function getTo()
+    public function getRecipients(\Zend\Mail\Message $message)
     {
-        $headers = $this->_mail->getHeaders();
-        $to = array();
-        if (isset($headers['To'])) {
-            foreach ($headers['To'] as $key => $val) {
-                if (empty($key) || $key != 'append') {
-                    $to[] = $val;
-                }
-            }
+        $recipients = [
+            'To' => $this->addressListToArray($message->getTo()),
+            'Cc' => $this->addressListToArray($message->getCc()),
+            'Bcc' => $this->addressListToArray($message->getBcc())
+        ];
+
+        $totalRecipients = array_sum(array_map('count', $recipients));
+
+        if ($totalRecipients === 0) {
+            throw new PostmarkTransportException(
+                'Invalid email: must contain at least one of "To", "Cc", and "Bcc" headers'
+            );
         }
-        return implode(',', $to);
+
+        if ($totalRecipients > self::RECIPIENTS_LIMIT) {
+            throw new PostmarkTransportException(
+                'Exceeded Postmark recipients limit per message'
+            );
+        }
+
+        return array_map(function ($addresses) { return implode(',', $addresses); }, $recipients);
     }
 
     /**
-     * Get mail Cc
+     * Convert address list to simple array
      *
-     * @return string
+     * @param \Zend\Mail\AddressList $addressList
+     * @return array
      */
-    public function getCc()
+    protected function addressListToArray(\Zend\Mail\AddressList $addressList)
     {
-        $headers = $this->_mail->getHeaders();
-        $cc = array();
-        if (isset($headers['Cc'])) {
-            foreach ($headers['Cc'] as $key => $val) {
-                if (empty($key) || $key != 'append') {
-                    $cc[] = $val;
-                }
-            }
+        $addresses = [];
+        foreach ($addressList as $address) {
+            $addresses[] = $address->getEmail();
         }
-        if (count($cc) > self::RECIPIENTS_LIMIT) {
-            throw new Exception('Exceeded Postmark Cc recipients limit per message');
-        }
-        return implode(',', $cc);
-    }
-
-    /**
-     * Get mail Bcc
-     *
-     * @return string
-     */
-    public function getBcc()
-    {
-        $headers = $this->_mail->getHeaders();
-        $bcc = array();
-        if (isset($headers['Bcc'])) {
-            foreach ($headers['Bcc'] as $key => $val) {
-                if (empty($key) || $key != 'append') {
-                    $bcc[] = $val;
-                }
-            }
-        }
-        if (count($bcc) > self::RECIPIENTS_LIMIT) {
-            throw new Exception('Exceeded Postmark Bcc recipients limit per message');
-        }
-        return implode(',', $bcc);
+        return $addresses;
     }
 
     /**
      * Get mail Reply To
      *
+     * @param \Zend\Mail\Message $message
      * @return string
      */
-    public function getReplyTo()
+    public function getReplyTo(\Zend\Mail\Message $message)
     {
-        $headers = $this->_mail->getHeaders();
-        $replyTo = array();
-        if (isset($headers['Reply-To'])) {
-            foreach ($headers['Reply-To'] as $key => $val) {
-                if (empty($key) || $key != 'append') {
-                    $replyTo[] = $val;
-                }
-            }
+        $addresses = $message->getReplyTo();
+
+        $replyTo = [];
+        foreach ($addresses as $address) {
+            $replyTo[] = $address->getEmail();
         }
+
         return implode(',', $replyTo);
     }
 
     /**
      * Get mail subject
      *
+     * @param \Zend\Mail\Message $message
      * @return string
      */
-    public function getSubject()
+    public function getSubject(\Zend\Mail\Message $message)
     {
-        if (function_exists('imap_utf8')) {
-            return imap_utf8($this->_mail->getSubject());
+        /** @var \Zend\Mail\Header\Subject $subjectHeader */
+        $subjectHeader = $message->getHeaders()->get('Subject');
+
+        if (! $subjectHeader) {
+            return '';
         }
-        return $this->_mail->getSubject();
+
+        return $subjectHeader->getFieldValue();
     }
 
     /**
-     * Get mail body - html
-     *
-     * @return string
+     * @param \Zend\Mail\Message $message
+     * @return array
+     * @throws \Ripen\Postmark\Model\Transport\Exception
      */
-    public function getBodyHtml()
+    public function getBody(\Zend\Mail\Message $message)
     {
-        if ($this->_mail->getBodyHtml()) {
-            $part = $this->_mail->getBodyHtml();
-            $part->encoding = false;
-            return $part->getContent();
-        }
-        return '';
-    }
+        $bodyVersions = [
+            Mime::TYPE_HTML => '',
+            Mime::TYPE_TEXT => ''
+        ];
 
-    /**
-     * Get mail body - plain
-     *
-     * @return string
-     */
-    public function getBodyText()
-    {
-        if ($this->_mail->getBodyText()) {
-            $part = $this->_mail->getBodyText();
-            $part->encoding = false;
-            return $part->getContent();
+        $body = $message->getBody();
+        if ($body instanceof \Zend\Mime\Message) {
+            $parts = $message->getBody()->getParts();
+            foreach ($parts as $part) {
+                if ($part->getType() == Mime::TYPE_HTML || $part->getType() == Mime::TYPE_TEXT) {
+                    $bodyVersions[$part->getType()] = $part->getRawContent();
+                }
+            }
+        } else {
+            /** @var \Zend\Mail\Header\ContentType $contentTypeHeader */
+            $contentTypeHeader = $message->getHeaders()->get('ContentType');
+            $bodyVersions[$contentTypeHeader->getType()] = (string) $body;
         }
-        return '';
+
+        if (empty($bodyVersions[Mime::TYPE_HTML]) && empty($bodyVersions[Mime::TYPE_TEXT])) {
+            throw new PostmarkTransportException('No body specified');
+        }
+
+        return $bodyVersions;
     }
 
     /**
@@ -301,16 +295,18 @@ class Postmark extends \Zend_Mail_Transport_Abstract
      *
      * @return string
      */
-    public function getTags()
+    public function getTags(\Zend\Mail\Message $message)
     {
-        $headers = $this->_mail->getHeaders();
-        $tags = array();
-        if (isset($headers['postmark-tag'])) {
-            foreach ($headers['postmark-tag'] as $key => $val) {
-                if (empty($key) || $key != 'append') {
-                    $tags[] = $val;
-                }
-            }
+        $headers = $message->getHeaders();
+
+        $tagsHeaders = $headers->get('Postmark-Tag');
+
+        if (! is_array($tagsHeaders)) $tagsHeaders = [];
+
+        $tags = [];
+        /** @var \Zend\Mail\Header\GenericHeader $tagsHeader */
+        foreach ($tagsHeaders as $tagsHeader) {
+            $tags[] = $tagsHeader->getFieldValue();
         }
         return implode(',', $tags);
     }
@@ -318,30 +314,25 @@ class Postmark extends \Zend_Mail_Transport_Abstract
     /**
      * Get mail Attachments
      *
+     * @param \Zend\Mail\Message $message
      * @return array
      */
-    public function getAttachments()
+    public function getAttachments(\Zend\Mail\Message $message)
     {
-        $attachments = array();
-        if ($this->_mail->hasAttachments) {
-            $parts = $this->_mail->getParts();
-            if (is_array($parts)) {
-                $i = 0;
-                foreach ($parts as $part) {
-                    $attachments[$i] = array(
-                        'ContentType' => $part->type,
-                        'Name' => $part->filename,
-                        'Content' => $part->getContent(),
-                    );
-                    $i++;
-                }
+        $body = $message->getBody();
+        if (! $body instanceof \Zend\Mime\Message) return [];
+
+        $attachments = [];
+        $parts = $message->getBody()->getParts();
+        foreach ($parts as $part) {
+            if ($part->getType() !== Mime::TYPE_TEXT && $part->getType() !== Mime::TYPE_HTML) {
+                $attachments[] = [
+                    'ContentType' => $part->getType(),
+                    'Name' => $part->getFileName(),
+                    'Content' => $part->getRawContent()
+                ];
             }
         }
         return $attachments;
-    }
-
-    public function setMail(\Zend_Mail $mail)
-    {
-        $this->_mail = $mail;
     }
 }
