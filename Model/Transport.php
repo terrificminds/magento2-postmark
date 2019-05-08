@@ -10,15 +10,15 @@
  * http://opensource.org/licenses/osl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
- * to info@sumoheavy.com so we can send you a copy immediately.
+ * to opensource@ripen.com so we can send you a copy immediately.
  *
- * @category    SUMOHeavy
- * @package     SUMOHeavy_Postmark
+ * @category    Ripen
+ * @package     Ripen_Postmark
  * @copyright   Copyright (c) SUMO Heavy Industries, LLC
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
-namespace SUMOHeavy\Postmark\Model;
+namespace Ripen\Postmark\Model;
 
 class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Framework\Mail\TransportInterface
 {
@@ -28,24 +28,24 @@ class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Fr
     protected $_message;
 
     /**
-     * @var \SUMOHeavy\Postmark\Helper\Data
+     * @var \Ripen\Postmark\Helper\Data
      */
     protected $_helper;
 
     /**
-     * @var \SUMOHeavy\Postmark\Model\Transport\Postmark
+     * @var \Ripen\Postmark\Model\Transport\Postmark
      */
     protected $_transportPostmark;
 
     /**
      * @param \Magento\Framework\Mail\MessageInterface $message
-     * @param \SUMOHeavy\Postmark\Helper\Data $helper
+     * @param \Ripen\Postmark\Helper\Data $helper
      * @param null $parameters
      */
     public function __construct(
         \Magento\Framework\Mail\MessageInterface $message,
-        \SUMOHeavy\Postmark\Model\Transport\Postmark $transportPostmark,
-        \SUMOHeavy\Postmark\Helper\Data $helper,
+        \Ripen\Postmark\Model\Transport\Postmark $transportPostmark,
+        \Ripen\Postmark\Helper\Data $helper,
         $parameters = null
     ) {
         $this->_helper  = $helper;

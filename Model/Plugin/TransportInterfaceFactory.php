@@ -10,40 +10,40 @@
  * http://opensource.org/licenses/osl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
- * to info@sumoheavy.com so we can send you a copy immediately.
+ * to opensource@ripen.com so we can send you a copy immediately.
  *
- * @category    SUMOHeavy
- * @package     SUMOHeavy_Postmark
+ * @category    Ripen
+ * @package     Ripen_Postmark
  * @copyright   Copyright (c) SUMO Heavy Industries, LLC
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
-namespace SUMOHeavy\Postmark\Model\Plugin;
+namespace Ripen\Postmark\Model\Plugin;
 
 class TransportInterfaceFactory
 {
     /**
      * Transport Factory
      *
-     * @var \SUMOHeavy\Postmark\Model\TransportFactory
+     * @var \Ripen\Postmark\Model\TransportFactory
      */
     protected $moduleTransportFactory;
 
     /**
      * Helper class
      *
-     * @var \SUMOHeavy\Postmark\Helper\Data
+     * @var \Ripen\Postmark\Helper\Data
      */
     protected $moduleHelper;
 
     /**
      * TransportBuilder constructor.
-     * @param \SUMOHeavy\Postmark\Helper\Data $moduleHelper
-     * @param \SUMOHeavy\Postmark\Model\TransportFactory $moduleTransportFactory
+     * @param \Ripen\Postmark\Helper\Data $moduleHelper
+     * @param \Ripen\Postmark\Model\TransportFactory $moduleTransportFactory
      */
     public function __construct(
-        \SUMOHeavy\Postmark\Helper\Data $moduleHelper,
-        \SUMOHeavy\Postmark\Model\TransportFactory $moduleTransportFactory
+        \Ripen\Postmark\Helper\Data $moduleHelper,
+        \Ripen\Postmark\Model\TransportFactory $moduleTransportFactory
     ) {
         $this->moduleHelper = $moduleHelper;
         $this->moduleTransportFactory = $moduleTransportFactory;

@@ -10,10 +10,10 @@
  * http://opensource.org/licenses/osl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
- * to info@sumoheavy.com so we can send you a copy immediately.
+ * to opensource@ripen.com so we can send you a copy immediately.
  *
- * @category    SUMOHeavy
- * @package     SUMOHeavy_Postmark
+ * @category    Ripen
+ * @package     Ripen_Postmark
  * @copyright   Copyright (c) SUMO Heavy Industries, LLC
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
@@ -21,6 +21,6 @@
 
 \Magento\Framework\Component\ComponentRegistrar::register(
     \Magento\Framework\Component\ComponentRegistrar::MODULE,
-    'SUMOHeavy_Postmark',
+    'Ripen_Postmark',
     __DIR__
 );

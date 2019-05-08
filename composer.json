@@ -12,7 +12,7 @@
         },
         {
             "name": "Scott Buchanan",
-            "email": "sbuchanan@ri.pn",
+            "email": "sbuchanan@ripen.com",
             "homepage": "https://ripen.com",
             "role": "Developer"
         }
@@ -36,7 +36,7 @@
             "registration.php"
         ],
         "psr-4": {
-            "SUMOHeavy\\Postmark\\": ""
+            "Ripen\\Postmark\\": ""
         }
     }
 }

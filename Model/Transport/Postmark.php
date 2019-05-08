@@ -10,15 +10,15 @@
  * http://opensource.org/licenses/osl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
- * to info@sumoheavy.com so we can send you a copy immediately.
+ * to opensource@ripen.com so we can send you a copy immediately.
  *
- * @category    SUMOHeavy
- * @package     SUMOHeavy_Postmark
+ * @category    Ripen
+ * @package     Ripen_Postmark
  * @copyright   Copyright (c) SUMO Heavy Industries, LLC
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
-namespace SUMOHeavy\Postmark\Model\Transport;
+namespace Ripen\Postmark\Model\Transport;
 
 class Postmark extends \Zend_Mail_Transport_Abstract
 {
@@ -47,12 +47,12 @@ class Postmark extends \Zend_Mail_Transport_Abstract
     protected $_client = null;
 
     /**
-     * @var \SUMOHeavy\Postmark\Helper\Data
+     * @var \Ripen\Postmark\Helper\Data
      */
     protected $_helper;
 
     public function __construct(
-        \SUMOHeavy\Postmark\Helper\Data $helper
+        \Ripen\Postmark\Helper\Data $helper
     ) {
         $this->_helper = $helper;
         $apiKey = $this->_helper->getApiKey();

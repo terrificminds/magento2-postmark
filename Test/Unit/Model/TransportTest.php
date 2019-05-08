@@ -10,15 +10,15 @@
  * http://opensource.org/licenses/osl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
- * to info@sumoheavy.com so we can send you a copy immediately.
+ * to opensource@ripen.com so we can send you a copy immediately.
  *
- * @category    SUMOHeavy
- * @package     SUMOHeavy_Postmark
+ * @category    Ripen
+ * @package     Ripen_Postmark
  * @copyright   Copyright (c) SUMO Heavy Industries, LLC
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
-namespace SUMOHeavy\Postmark\Test\Unit\Model;
+namespace Ripen\Postmark\Test\Unit\Model;
 
 class TransportTest extends \PHPUnit\Framework\TestCase
 {
@@ -28,7 +28,7 @@ class TransportTest extends \PHPUnit\Framework\TestCase
     private $_helper;
 
     /**
-     * @var \SUMOHeavy\Postmark\Model\Transport
+     * @var \Ripen\Postmark\Model\Transport
      */
     private $_transport;
 
@@ -39,7 +39,7 @@ class TransportTest extends \PHPUnit\Framework\TestCase
 
     public function setUp()
     {
-        $this->_helper = $this->getMockBuilder(\SUMOHeavy\Postmark\Helper\Data::class)
+        $this->_helper = $this->getMockBuilder(\Ripen\Postmark\Helper\Data::class)
             ->setMethods(['canUse'])
             ->disableOriginalConstructor()
             ->getMock();
@@ -48,12 +48,12 @@ class TransportTest extends \PHPUnit\Framework\TestCase
             ->disableOriginalConstructor()
             ->getMock();
 
-        $this->_transportPostmarkMock = $this->getMockBuilder(\SUMOHeavy\Postmark\Model\Transport\Postmark::class)
+        $this->_transportPostmarkMock = $this->getMockBuilder(\Ripen\Postmark\Model\Transport\Postmark::class)
             ->setMethods(['send'])
             ->disableOriginalConstructor()
             ->setConstructorArgs(['helper' => $this->_helper])
             ->getMock();
-        $this->_transport = new \SUMOHeavy\Postmark\Model\Transport($this->_message, $this->_transportPostmarkMock, $this->_helper);
+        $this->_transport = new \Ripen\Postmark\Model\Transport($this->_message, $this->_transportPostmarkMock, $this->_helper);
     }
 
     public function testSendMessage()
@@ -77,7 +77,7 @@ class TransportTest extends \PHPUnit\Framework\TestCase
 
         $this->_transportPostmarkMock->expects($this->once())
             ->method('send')
-            ->will($this->throwException(new \SUMOHeavy\Postmark\Model\Transport\Exception('test')));
+            ->will($this->throwException(new \Ripen\Postmark\Model\Transport\Exception('test')));
 
         try {
             $this->_transport->sendMessage();

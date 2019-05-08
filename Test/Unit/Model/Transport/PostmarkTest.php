@@ -10,15 +10,15 @@
  * http://opensource.org/licenses/osl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
- * to info@sumoheavy.com so we can send you a copy immediately.
+ * to opensource@ripen.com so we can send you a copy immediately.
  *
- * @category    SUMOHeavy
- * @package     SUMOHeavy_Postmark
+ * @category    Ripen
+ * @package     Ripen_Postmark
  * @copyright   Copyright (c) SUMO Heavy Industries, LLC
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
-namespace SUMOHeavy\Postmark\Test\Unit\Model\Transport;
+namespace Ripen\Postmark\Test\Unit\Model\Transport;
 
 class PostmarkTest extends \PHPUnit\Framework\TestCase
 {
@@ -28,12 +28,12 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
     protected $adapter;
 
     /**
-     * @var \SUMOHeavy\Postmark\Model\Transport\Postmark;
+     * @var \Ripen\Postmark\Model\Transport\Postmark;
      */
     protected $transport;
 
     /**
-     * @var \SUMOHeavy\Postmark\Helper\Data
+     * @var \Ripen\Postmark\Helper\Data
      */
     protected $helper;
 
@@ -41,7 +41,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
     {
         $this->adapter = new \Zend_Http_Client_Adapter_Test();
 
-        $this->helper = $this->getMockBuilder(\SUMOHeavy\Postmark\Helper\Data::class)
+        $this->helper = $this->getMockBuilder(\Ripen\Postmark\Helper\Data::class)
             ->setMethods(['getApiKey'])
             ->disableOriginalConstructor()
             ->getMock();
@@ -50,7 +50,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
             ->method('getApiKey')
             ->will($this->returnValue('test-api-key'));
 
-        $this->transport = new \SUMOHeavy\Postmark\Model\Transport\Postmark($this->helper);
+        $this->transport = new \Ripen\Postmark\Model\Transport\Postmark($this->helper);
         $this->transport->getHttpClient()->setAdapter($this->adapter);
     }
 

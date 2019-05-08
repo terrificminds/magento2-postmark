@@ -11,10 +11,10 @@
  * http://opensource.org/licenses/osl-3.0.php
  * If you did not receive a copy of the license and are unable to
  * obtain it through the world-wide-web, please send an email
- * to info@sumoheavy.com so we can send you a copy immediately.
+ * to opensource@ripen.com so we can send you a copy immediately.
  *
- * @category    SUMOHeavy
- * @package     SUMOHeavy_Postmark
+ * @category    Ripen
+ * @package     Ripen_Postmark
  * @copyright   Copyright (c) SUMO Heavy Industries, LLC
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
@@ -25,7 +25,7 @@
         <section id="postmark" translate="label" type="text" sortOrder="300" showInDefault="1" showInWebsite="1" showInStore="1">
             <label>Postmark Integration</label>
             <tab>service</tab>
-            <resource>SUMOHeavy_Postmark::config_postmark</resource>
+            <resource>Ripen_Postmark::config_postmark</resource>
             <group id="settings" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Settings</label>
                 <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
