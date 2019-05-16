@@ -280,7 +280,8 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
         } else {
             /** @var \Zend\Mail\Header\ContentType $contentTypeHeader */
             $contentTypeHeader = $message->getHeaders()->get('ContentType');
-            $bodyVersions[$contentTypeHeader->getType()] = (string) $body;
+            $contentType = $contentTypeHeader ? $contentTypeHeader->getType() : Mime::TYPE_TEXT;
+            $bodyVersions[$contentType] = (string) $body;
         }
 
         if (empty($bodyVersions[Mime::TYPE_HTML]) && empty($bodyVersions[Mime::TYPE_TEXT])) {
