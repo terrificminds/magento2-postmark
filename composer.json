@@ -25,8 +25,7 @@
         "forum": "https://github.com/ripenecommerce/magento2-postmark/issues"
     },
     "require": {
-        "php": "~5.5.0|~5.6.0|~7.0.0|~7.1.0|~7.2.0",
-        "magento/framework": "^102"
+        "php": "~5.5.0|~5.6.0|~7.0.0|~7.1.0|~7.2.0"
     },
     "autoload": {
         "files": [
