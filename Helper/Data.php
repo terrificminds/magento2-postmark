@@ -23,8 +23,9 @@ namespace Ripen\Postmark\Helper;
 
 class Data extends \Magento\Framework\App\Helper\AbstractHelper
 {
-    const XML_PATH_ENABLED          = 'postmark/settings/enabled';
-    const XML_PATH_APIKEY           = 'postmark/settings/apikey';
+    const XML_PATH_ENABLED = 'postmark/settings/enabled';
+    const XML_PATH_DEBUG_MODE = 'postmark/settings/debug_mode';
+    const XML_PATH_APIKEY = 'postmark/settings/apikey';
 
     /**
      * @var \Psr\Log\LoggerInterface
@@ -35,7 +36,6 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
      * @var \Magento\Framework\ObjectManagerInterface
      */
     protected $_objectManager;
-
 
     /**
      * @param \Magento\Framework\App\Helper\Context $context
@@ -81,6 +81,19 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
 
     /**
      * @param null $store
+     * @return mixed
+     */
+    public function isDebugMode($store = null)
+    {
+        return $this->scopeConfig->getValue(
+            self::XML_PATH_DEBUG_MODE,
+            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
+            $store
+        );
+    }
+
+    /**
+     * @param null $store
      * @return boolean
      */
     public function canUse($store = null)
@@ -91,8 +104,8 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
     /**
      * @param $msg
      */
-    public function log($msg)
+    public function log($msg, $level = \Psr\Log\LogLevel::INFO)
     {
-        $this->_logger->info($msg);
+        $this->_logger->log($level, $msg);
     }
 }
