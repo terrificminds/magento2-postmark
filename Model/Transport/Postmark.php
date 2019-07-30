@@ -102,7 +102,7 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
             if ($this->helper->isDebugMode()) {
                 $debugData = json_encode(array_intersect_key($data, array_flip(['From', 'Subject', 'ReplyTo', 'Tag'])));
                 $debugStatus = $errorMessage ? "failed to send with error '$errorMessage'" : 'sent';
-                $this->data->log(LogLevel::DEBUG, "Postmark email $debugStatus: $debugData");
+                $this->data->log("Postmark email $debugStatus: $debugData", LogLevel::DEBUG);
             }
         }
     }
