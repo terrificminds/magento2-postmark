@@ -21,6 +21,7 @@
  */
 namespace Ripen\Postmark\Model\Transport;
 
+use Psr\Log\LogLevel;
 use Ripen\Postmark\Model\Transport\Exception as PostmarkTransportException;
 use Zend\Mime\Mime;
 
@@ -86,11 +87,24 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
             'Attachments' => $this->getAttachments($message),
             'Tag' => $this->getTags($message),
         ];
-        $response = $this->prepareHttpClient('/email')
-            ->setMethod(\Zend\Http\Request::METHOD_POST)
-            ->setRawBody(json_encode($data))
-            ->send();
-        $this->parseResponse($response);
+
+        $errorMessage = null;
+        try {
+            $response = $this->prepareHttpClient('/email')
+                ->setMethod(\Zend\Http\Request::METHOD_POST)
+                ->setRawBody(json_encode($data))
+                ->send();
+            $this->parseResponse($response);
+        } catch (\Throwable $e) {
+            $errorMessage = $e->getMessage();
+            throw $e;
+        } finally {
+            if ($this->helper->isDebugMode()) {
+                $debugData = json_encode(array_intersect_key($data, array_flip(['From', 'Subject', 'ReplyTo', 'Tag'])));
+                $debugStatus = $errorMessage ? "failed to send with error '$errorMessage'" : 'sent';
+                $this->helper->log("Postmark email $debugStatus: $debugData", LogLevel::DEBUG);
+            }
+        }
     }
 
     /**
