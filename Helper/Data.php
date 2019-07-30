@@ -81,11 +81,11 @@ class Data extends \Magento\Framework\App\Helper\AbstractHelper
 
     /**
      * @param null $store
-     * @return mixed
+     * @return bool
      */
     public function isDebugMode($store = null)
     {
-        return $this->scopeConfig->getValue(
+        return (bool) $this->scopeConfig->getValue(
             self::XML_PATH_DEBUG_MODE,
             \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
             $store

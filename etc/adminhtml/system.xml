@@ -39,6 +39,11 @@
                 <field id="debug_mode" translate="label" type="select" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>Debug Mode</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[
+                        In order for logs to appear in standard <code>debug.log</code> file, the general Magento
+                        <a href="https://devdocs.magento.com/guides/v2.3/config-guide/cli/logging.html">debug logging</a>
+                        setting will also need to be enabled.
+                    ]]></comment>
                 </field>
             </group>
         </section>
