@@ -173,19 +173,25 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
      * Get mail From
      *
      * @param \Zend\Mail\Message $message
-     * @return string
+     * @return string|null
      */
     public function getFrom(\Zend\Mail\Message $message)
     {
         $sender = $message->getSender();
         if ($sender instanceof \Zend\Mail\Address\AddressInterface) {
-            return $sender->getEmail();
+            $name = $sender->getName();
+            $address = $sender->getEmail();
+        } else {
+            $from = $message->getFrom();
+            if (count($from)) {
+                $name = $from->rewind()->getName();
+                $address = $from->rewind()->getEmail();
+            }
         }
+ 
+        if (empty($address)) throw new PostmarkTransportException('No from address specified');
 
-        $from = $message->getFrom();
-        if (count($from)) {
-            return $from->rewind()->getEmail();
-        }
+        return empty($name) ? $address : "$name <$address>";
     }
 
     /**
