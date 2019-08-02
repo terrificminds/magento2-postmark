@@ -26,7 +26,7 @@
     },
     "require": {
         "php": "~5.5.0|~5.6.0|~7.0.0|~7.1.0|~7.2.0",
-        "magento/framework": "^102"
+        "magento/framework": "^101.0.8|^102"
     },
     "autoload": {
         "files": [
