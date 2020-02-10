@@ -21,6 +21,7 @@
  */
 namespace Ripen\Postmark\Model\Transport;
 
+use Psr\Log\LogLevel;
 use Ripen\Postmark\Model\Transport\Exception as PostmarkTransportException;
 use Zend\Mime\Mime;
 
@@ -86,11 +87,24 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
             'Attachments' => $this->getAttachments($message),
             'Tag' => $this->getTags($message),
         ];
-        $response = $this->prepareHttpClient('/email')
-            ->setMethod(\Zend\Http\Request::METHOD_POST)
-            ->setRawBody(json_encode($data))
-            ->send();
-        $this->parseResponse($response);
+
+        $errorMessage = null;
+        try {
+            $response = $this->prepareHttpClient('/email')
+                ->setMethod(\Zend\Http\Request::METHOD_POST)
+                ->setRawBody(json_encode($data))
+                ->send();
+            $this->parseResponse($response);
+        } catch (\Throwable $e) {
+            $errorMessage = $e->getMessage();
+            throw $e;
+        } finally {
+            if ($this->helper->isDebugMode()) {
+                $debugData = json_encode(array_intersect_key($data, array_flip(['From', 'Subject', 'ReplyTo', 'Tag'])));
+                $debugStatus = $errorMessage ? "failed to send with error '$errorMessage'" : 'sent';
+                $this->helper->log("Postmark email $debugStatus: $debugData", LogLevel::DEBUG);
+            }
+        }
     }
 
     /**
@@ -159,19 +173,25 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
      * Get mail From
      *
      * @param \Zend\Mail\Message $message
-     * @return string
+     * @return string|null
      */
     public function getFrom(\Zend\Mail\Message $message)
     {
         $sender = $message->getSender();
         if ($sender instanceof \Zend\Mail\Address\AddressInterface) {
-            return $sender->getEmail();
+            $name = $sender->getName();
+            $address = $sender->getEmail();
+        } else {
+            $from = $message->getFrom();
+            if (count($from)) {
+                $name = $from->rewind()->getName();
+                $address = $from->rewind()->getEmail();
+            }
         }
+ 
+        if (empty($address)) throw new PostmarkTransportException('No from address specified');
 
-        $from = $message->getFrom();
-        if (count($from)) {
-            return $from->rewind()->getEmail();
-        }
+        return empty($name) ? $address : "$name <$address>";
     }
 
     /**

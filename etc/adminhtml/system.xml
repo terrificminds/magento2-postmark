@@ -30,11 +30,20 @@
             <group id="settings" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>Settings</label>
                 <field id="enabled" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1">
-                    <label>Enable Postmark Integration?</label>
+                    <label>Enable Postmark Integration</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                 </field>
                 <field id="apikey" translate="label" type="text" sortOrder="15" showInDefault="1" showInWebsite="1" showInStore="1">
                     <label>API Key</label>
+                </field>
+                <field id="debug_mode" translate="label" type="select" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label>Debug Mode</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <comment><![CDATA[
+                        In order for logs to appear in standard <code>debug.log</code> file, the general Magento
+                        <a href="https://devdocs.magento.com/guides/v2.3/config-guide/cli/logging.html">debug logging</a>
+                        setting will also need to be enabled.
+                    ]]></comment>
                 </field>
             </group>
         </section>
