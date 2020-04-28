@@ -76,9 +76,13 @@ class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Fr
         }
 
         try {
-            $this->transportPostmark->send(
-                ZendMessage::fromString($this->message->getRawMessage())
-            );
+            $message = $this->message->getRawMessage();
+
+            if ($this->message->getBody()->getParts()[0]->getEncoding() === 'quoted-printable') {
+                $message = quoted_printable_decode($message);
+            }
+
+            $this->transportPostmark->send(ZendMessage::fromString($message));
         } catch (\Throwable $e) {
             throw new \Magento\Framework\Exception\MailException(new \Magento\Framework\Phrase($e->getMessage()), $e);
         }
