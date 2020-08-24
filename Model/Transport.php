@@ -22,6 +22,7 @@
 namespace Ripen\Postmark\Model;
 
 use Zend\Mail\Message as ZendMessage;
+use Zend\Mail\Headers as ZendHeaders;
 
 class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Framework\Mail\TransportInterface
 {
@@ -76,9 +77,15 @@ class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Fr
         }
 
         try {
-            $this->transportPostmark->send(
-                ZendMessage::fromString($this->message->getRawMessage())
-            );
+            // Create a Zend\Mail\Message object to pass to Postmark
+            $headers = new ZendHeaders();
+            $headers->addHeaders($this->message->getHeaders());
+
+            $message = new ZendMessage();
+            $message->setHeaders($headers);
+            $message->setBody($this->message->getBody());
+
+            $this->transportPostmark->send($message);
         } catch (\Throwable $e) {
             throw new \Magento\Framework\Exception\MailException(new \Magento\Framework\Phrase($e->getMessage()), $e);
         }
