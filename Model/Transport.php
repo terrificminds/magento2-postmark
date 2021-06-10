@@ -21,8 +21,8 @@
  */
 namespace Ripen\Postmark\Model;
 
-use Zend\Mail\Message as ZendMessage;
-use Zend\Mail\Headers as ZendHeaders;
+use Laminas\Mail\Message as LaminasMessage;
+use Laminas\Mail\Headers as LaminasHeaders;
 
 class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Framework\Mail\TransportInterface
 {
@@ -77,12 +77,19 @@ class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Fr
         }
 
         try {
-            // Create a Zend\Mail\Message object to pass to Postmark
-            $headers = new ZendHeaders();
-            $headers->addHeaders($this->message->getHeaders());
+            $headers = new LaminasHeaders();
 
-            $message = new ZendMessage();
+            $headersArray = $this->message->getHeaders();
+            if (isset($headersArray['To'])) {
+                $to = $headersArray['To'];
+                unset($headersArray['To']);
+            }
+
+            $headers->addHeaders($headersArray);
+
+            $message = new LaminasMessage();
             $message->setHeaders($headers);
+            $message->addTo($to);
             $message->setBody($this->message->getBody());
 
             $this->transportPostmark->send($message);
