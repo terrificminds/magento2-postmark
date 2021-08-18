@@ -24,7 +24,7 @@ namespace Ripen\Postmark\Test\Unit\Model\Transport;
 class PostmarkTest extends \PHPUnit\Framework\TestCase
 {
     /**
-     * @var \Zend_Http_Client_Adapter_Interface
+     * @var \Laminas_Http_Client_Adapter_Interface
      */
     protected $adapter;
 
@@ -40,7 +40,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function setUp()
     {
-        $this->adapter = new \Zend_Http_Client_Adapter_Test();
+        $this->adapter = new \Laminas_Http_Client_Adapter_Test();
 
         $this->helper = $this->getMockBuilder(\Ripen\Postmark\Helper\Data::class)
             ->setMethods(['getApiKey'])
@@ -57,7 +57,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testSendMail()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->adapter->setResponse(
             "HTTP/1.1 200 OK"        . "\r\n" .
@@ -74,12 +74,12 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetHttpClient()
     {
-        $this->assertInstanceOf('\Zend_Http_Client', $this->transport->getHttpClient());
+        $this->assertInstanceOf('\Laminas_Http_Client', $this->transport->getHttpClient());
     }
 
     public function testGetFrom()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getFrom());
@@ -90,7 +90,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetTo()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getTo());
@@ -104,7 +104,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetCc()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getCc());
@@ -118,7 +118,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetBcc()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getBcc());
@@ -132,7 +132,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetReplyTo()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getReplyTo());
@@ -143,7 +143,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetSubject()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getSubject());
@@ -154,7 +154,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetBodyHtml()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getBodyHtml());
@@ -165,7 +165,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetBodyText()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getBodyText());
@@ -176,7 +176,7 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetTags()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getTags());
@@ -190,15 +190,15 @@ class PostmarkTest extends \PHPUnit\Framework\TestCase
 
     public function testGetAttachements()
     {
-        $mail = new \Zend_Mail;
+        $mail = new \Laminas_Mail;
 
         $this->transport->setMail($mail);
         $this->assertEmpty($this->transport->getAttachments());
 
         $at = $mail->createAttachment('test');
         $at->type        = 'image/gif';
-        $at->disposition = \Zend_Mime::DISPOSITION_INLINE;
-        $at->encoding    = \Zend_Mime::ENCODING_BASE64;
+        $at->disposition = \Laminas_Mime::DISPOSITION_INLINE;
+        $at->encoding    = \Laminas_Mime::ENCODING_BASE64;
         $at->filename    = 'test.gif';
         $this->transport->setMail($mail);
 
