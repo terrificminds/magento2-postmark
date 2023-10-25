@@ -23,9 +23,9 @@ namespace Ripen\Postmark\Model\Transport;
 
 use Psr\Log\LogLevel;
 use Ripen\Postmark\Model\Transport\Exception as PostmarkTransportException;
-use Zend\Mime\Mime;
+use Laminas\Mime\Mime;
 
-class Postmark implements \Zend\Mail\Transport\TransportInterface
+class Postmark implements \Laminas\Mail\Transport\TransportInterface
 {
     /**
      * Postmark API Uri
@@ -69,11 +69,11 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
      * Send request to Postmark service
      *
      * @link http://developer.postmarkapp.com/developer-build.html
-     * @param \Zend\Mail\Message $message
+     * @param \Laminas\Mail\Message $message
      * @return void
      * @throws \Ripen\Postmark\Model\Transport\Exception
      */
-    public function send(\Zend\Mail\Message $message)
+    public function send(\Laminas\Mail\Message $message)
     {
         $recipients = $this->getRecipients($message);
         $bodyVersions = $this->getBody($message);
@@ -91,7 +91,7 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
         $errorMessage = null;
         try {
             $response = $this->prepareHttpClient('/email')
-                ->setMethod(\Zend\Http\Request::METHOD_POST)
+                ->setMethod(\Laminas\Http\Request::METHOD_POST)
                 ->setRawBody(json_encode($data))
                 ->send();
             $this->parseResponse($response);
@@ -111,7 +111,7 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
      * Get a HTTP client instance
      *
      * @param string $path
-     * @return \Zend\Http\Client
+     * @return \Laminas\Http\Client
      */
     protected function prepareHttpClient($path)
     {
@@ -121,11 +121,11 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
     /**
      * Returns a HTTP client object
      *
-     * @return \Zend\Http\Client
+     * @return \Laminas\Http\Client
      */
     public function getHttpClient()
     {
-        $client = new \Zend\Http\Client();
+        $client = new \Laminas\Http\Client();
         $client->setHeaders([
             'Accept' => 'application/json',
             'X-Postmark-Server-Token' => $this->apiKey
@@ -137,11 +137,11 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
     /**
      * Parse response object and check for errors
      *
-     * @param \Zend\Http\Response $response
+     * @param \Laminas\Http\Response $response
      * @return array
      * @throws \Ripen\Postmark\Model\Transport\Exception
      */
-    protected function parseResponse(\Zend\Http\Response $response)
+    protected function parseResponse(\Laminas\Http\Response $response)
     {
         $result = json_decode($response->getBody(), true);
 
@@ -172,13 +172,13 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
     /**
      * Get mail From
      *
-     * @param \Zend\Mail\Message $message
+     * @param \Laminas\Mail\Message $message
      * @return string|null
      */
-    public function getFrom(\Zend\Mail\Message $message)
+    public function getFrom(\Laminas\Mail\Message $message)
     {
         $sender = $message->getSender();
-        if ($sender instanceof \Zend\Mail\Address\AddressInterface) {
+        if ($sender instanceof \Laminas\Mail\Address\AddressInterface) {
             $name = $sender->getName();
             $address = $sender->getEmail();
         } else {
@@ -188,7 +188,7 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
                 $address = $from->rewind()->getEmail();
             }
         }
- 
+
         if (empty($address)) throw new PostmarkTransportException('No from address specified');
 
         return empty($name) ? $address : "$name <$address>";
@@ -197,11 +197,11 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
     /**
      * Get mail recipients (To, Cc, and Bcc)
      *
-     * @param \Zend\Mail\Message $message
+     * @param \Laminas\Mail\Message $message
      * @return array
      * @throws \Ripen\Postmark\Model\Transport\Exception
      */
-    public function getRecipients(\Zend\Mail\Message $message)
+    public function getRecipients(\Laminas\Mail\Message $message)
     {
         $recipients = [
             'To' => $this->addressListToArray($message->getTo()),
@@ -229,10 +229,10 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
     /**
      * Convert address list to simple array
      *
-     * @param \Zend\Mail\AddressList $addressList
+     * @param \Laminas\Mail\AddressList $addressList
      * @return array
      */
-    protected function addressListToArray(\Zend\Mail\AddressList $addressList)
+    protected function addressListToArray(\Laminas\Mail\AddressList $addressList)
     {
         $addresses = [];
         foreach ($addressList as $address) {
@@ -244,10 +244,10 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
     /**
      * Get mail Reply To
      *
-     * @param \Zend\Mail\Message $message
+     * @param \Laminas\Mail\Message $message
      * @return string
      */
-    public function getReplyTo(\Zend\Mail\Message $message)
+    public function getReplyTo(\Laminas\Mail\Message $message)
     {
         $addresses = $message->getReplyTo();
 
@@ -262,12 +262,12 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
     /**
      * Get mail subject
      *
-     * @param \Zend\Mail\Message $message
+     * @param \Laminas\Mail\Message $message
      * @return string
      */
-    public function getSubject(\Zend\Mail\Message $message)
+    public function getSubject(\Laminas\Mail\Message $message)
     {
-        /** @var \Zend\Mail\Header\Subject $subjectHeader */
+        /** @var \Laminas\Mail\Header\Subject $subjectHeader */
         $subjectHeader = $message->getHeaders()->get('Subject');
 
         if (! $subjectHeader) {
@@ -278,11 +278,11 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
     }
 
     /**
-     * @param \Zend\Mail\Message $message
+     * @param \Laminas\Mail\Message $message
      * @return array
      * @throws \Ripen\Postmark\Model\Transport\Exception
      */
-    public function getBody(\Zend\Mail\Message $message)
+    public function getBody(\Laminas\Mail\Message $message)
     {
         $bodyVersions = [
             Mime::TYPE_HTML => '',
@@ -290,7 +290,7 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
         ];
 
         $body = $message->getBody();
-        if ($body instanceof \Zend\Mime\Message) {
+        if ($body instanceof \Laminas\Mime\Message) {
             $parts = $message->getBody()->getParts();
             foreach ($parts as $part) {
                 if ($part->getType() == Mime::TYPE_HTML || $part->getType() == Mime::TYPE_TEXT) {
@@ -298,7 +298,7 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
                 }
             }
         } else {
-            /** @var \Zend\Mail\Header\ContentType $contentTypeHeader */
+            /** @var \Laminas\Mail\Header\ContentType $contentTypeHeader */
             $contentTypeHeader = $message->getHeaders()->get('ContentType');
             $contentType = $contentTypeHeader ? $contentTypeHeader->getType() : Mime::TYPE_TEXT;
             $bodyVersions[$contentType] = (string) $body;
@@ -316,7 +316,7 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
      *
      * @return string
      */
-    public function getTags(\Zend\Mail\Message $message)
+    public function getTags(\Laminas\Mail\Message $message)
     {
         $headers = $message->getHeaders();
 
@@ -325,7 +325,7 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
         if (! is_array($tagsHeaders)) $tagsHeaders = [];
 
         $tags = [];
-        /** @var \Zend\Mail\Header\GenericHeader $tagsHeader */
+        /** @var \Laminas\Mail\Header\GenericHeader $tagsHeader */
         foreach ($tagsHeaders as $tagsHeader) {
             $tags[] = $tagsHeader->getFieldValue();
         }
@@ -335,13 +335,13 @@ class Postmark implements \Zend\Mail\Transport\TransportInterface
     /**
      * Get mail Attachments
      *
-     * @param \Zend\Mail\Message $message
+     * @param \Laminas\Mail\Message $message
      * @return array
      */
-    public function getAttachments(\Zend\Mail\Message $message)
+    public function getAttachments(\Laminas\Mail\Message $message)
     {
         $body = $message->getBody();
-        if (! $body instanceof \Zend\Mime\Message) return [];
+        if (! $body instanceof \Laminas\Mime\Message) return [];
 
         $attachments = [];
         $parts = $message->getBody()->getParts();

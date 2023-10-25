@@ -2,7 +2,6 @@
     "name": "ripenecommerce/magento2-postmark",
     "description": "Postmark for Magento 2",
     "type": "magento2-module",
-    "version": "2.1.5",
     "authors": [
         {
             "name": "Szymon Wlodarski",
@@ -25,8 +24,8 @@
         "forum": "https://github.com/ripenecommerce/magento2-postmark/issues"
     },
     "require": {
-        "php": "~7.1.3||~7.2.0||~7.3.0",
-        "magento/framework": "^102.0.3"
+        "php": ">=7.1.3 ~7.4",
+        "magento/framework": "^102.0.5||^103.0.0"
     },
     "autoload": {
         "files": [
