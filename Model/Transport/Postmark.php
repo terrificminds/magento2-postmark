@@ -137,6 +137,8 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
     /**
      * Parse response object and check for errors
      *
+     * @see https://postmarkapp.com/developer/api/overview#response-codes  (possible HTTP status codes)
+     *
      * @param \Laminas\Http\Response $response
      * @return array
      * @throws \Ripen\Postmark\Model\Transport\Exception
@@ -146,20 +148,22 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
         $result = json_decode($response->getBody(), true);
 
         if ($response->isClientError()) {
+
+            $errorCode = $result['ErrorCode'] ?? 'Unknown';
+            $errorMessage = $result['Message'] ?? 'Unknown';
+
             switch ($response->getStatusCode()) {
                 case 401:
                     throw new PostmarkTransportException('Postmark request error: Unauthorized - Missing or incorrect API Key header.');
-                    break;
                 case 422:
-                    $errorCode = isset($result['ErrorCode']) ? $result['ErrorCode'] : 'Unknown';
-                    $errorMessage = isset($result['Message']) ? $result['Message'] : 'Unknown';
+
                     throw new PostmarkTransportException(sprintf('Postmark request error: Unprocessable Entity - API error code %s, message: %s', $errorCode, $errorMessage));
-                    break;
                 case 500:
                     throw new PostmarkTransportException('Postmark request error: Postmark Internal Server Error');
-                    break;
+                case 503:
+                    throw new PostmarkTransportException('Postmark request error: Service Unavailable (planned service outage)');
                 default:
-                    throw new PostmarkTransportException('Unknown error during request to Postmark server');
+                    throw new PostmarkTransportException(sprintf('Unknown error during request to Postmark server - API error code %s, message: %s', $errorCode, $errorMessage));
             }
         }
 
