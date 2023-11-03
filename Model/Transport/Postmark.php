@@ -128,6 +128,7 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
         $client = new \Laminas\Http\Client();
         $client->setHeaders([
             'Accept' => 'application/json',
+            'Content-Type' => 'application/json',
             'X-Postmark-Server-Token' => $this->apiKey
         ]);
 
