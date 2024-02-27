@@ -77,6 +77,7 @@ class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Fr
         }
 
         try {
+            // Create a Laminas\Mail\Message object to pass to Postmark
             $headers = new LaminasHeaders();
 
             $headersArray = $this->message->getHeaders();
