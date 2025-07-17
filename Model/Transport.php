@@ -104,4 +104,14 @@ class Transport extends \Magento\Framework\Mail\Transport implements \Magento\Fr
             throw new \Magento\Framework\Exception\MailException(new \Magento\Framework\Phrase($e->getMessage()), $e);
         }
     }
+
+    /**
+     * Get message
+     *
+     * @return \Magento\Framework\Mail\MailMessageInterface
+     */
+    public function getMessage(): \Magento\Framework\Mail\MailMessageInterface
+    {
+        return $this->message;
+    }
 }
