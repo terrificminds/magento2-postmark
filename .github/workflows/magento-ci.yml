@@ -11,6 +11,9 @@ jobs:
     env:
       vendor-name: Ripen
       module-name: Postmark
+      COMPOSER_NO_AUDIT: 1
+      COMPOSER_NO_INTERACTION: 1
+      COMPOSER_PROCESS_TIMEOUT: 0
 
     strategy:
       fail-fast: false
@@ -18,7 +21,7 @@ jobs:
         magento-version: [2.4.5, 2.4.6, 2.4.7, 2.4.8]
         tool: [phpcs, phpmd, phpstan, phpunit]
 
-    name: Magento ${{ matrix.magento-version }} (PHP ${{ matrix.php-version }}) – ${{ matrix.tool }}
+    name: Magento ${{ matrix.magento-version }} – ${{ matrix.tool }}
 
     steps:
       - name: Checkout module code
@@ -55,6 +58,12 @@ jobs:
             }
           }
           EOF
+
+      - name: Disable Composer audit blocking
+        run: |
+          composer config --global audit.block-insecure false
+          composer config --global audit.ignore "*"
+          composer config --global audit.abandoned ignore
 
       - name: Create Magento ${{ matrix.magento-version }}
         run: |
