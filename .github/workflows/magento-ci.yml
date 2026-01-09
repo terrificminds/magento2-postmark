@@ -93,7 +93,7 @@ jobs:
 
       - name: Install Magento dependencies
         working-directory: magento
-        run: composer install --no-interaction --prefer-dist
+        run: composer install --no-interaction --no-progress --no-ansi --prefer-dist
 
       - name: Run PHPCS
         if: matrix.tool == 'phpcs'
@@ -101,7 +101,7 @@ jobs:
         run: |
           vendor/bin/phpcs \
             app/code \
-            --standard=app/code/**/phpcs.xml
+            --standard=Magento2
 
       - name: Run PHPMD
         if: matrix.tool == 'phpmd'
@@ -109,8 +109,8 @@ jobs:
         run: |
           vendor/bin/phpmd \
             app/code \
-            text \
-            app/code/**/phpmd.xml
+            ansi \
+            dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml
 
       - name: Run PHPStan
         if: matrix.tool == 'phpstan'
@@ -118,11 +118,12 @@ jobs:
         run: |
           vendor/bin/phpstan analyse \
             app/code \
-            -c app/code/**/phpstan.neon
+            --level=1
 
       - name: Run PHPUnit (Unit tests)
         if: matrix.tool == 'phpunit'
         working-directory: magento
         run: |
           vendor/bin/phpunit \
-            -c app/code/**/phpunit.xml
+            -c dev/tests/unit/phpunit.xml.dist \
+            app/code
