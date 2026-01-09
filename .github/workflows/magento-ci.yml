@@ -8,18 +8,14 @@ jobs:
   magento-tests:
     runs-on: ubuntu-latest
 
+    env:
+      vendor-name: Ripen
+      module-name: Postmark
+
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - magento-version: 2.4.5
-            php-version: 8.1
-          - magento-version: 2.4.6
-            php-version: 8.2
-          - magento-version: 2.4.7
-            php-version: 8.3
-          - magento-version: 2.4.8
-            php-version: 8.4
+        magento-version: [2.4.5, 2.4.6, 2.4.7, 2.4.8]
         tool: [phpcs, phpmd, phpstan, phpunit]
 
     name: Magento ${{ matrix.magento-version }} (PHP ${{ matrix.php-version }}) – ${{ matrix.tool }}
@@ -28,10 +24,20 @@ jobs:
       - name: Checkout module code
         uses: actions/checkout@v4
 
-      - name: Setup PHP ${{ matrix.php-version }}
+      - name: Resolve PHP version
+        id: php
+        run: |
+          case "${{ matrix.magento-version }}" in
+            2.4.5) echo "version=8.1" >> $GITHUB_OUTPUT ;;
+            2.4.6) echo "version=8.2" >> $GITHUB_OUTPUT ;;
+            2.4.7) echo "version=8.3" >> $GITHUB_OUTPUT ;;
+            2.4.8) echo "version=8.4" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - name: Setup PHP ${{ steps.php.outputs.version }}
         uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php-version }}
+          php-version: ${{ steps.php.outputs.version }}
           extensions: mbstring, intl, bcmath, soap, xsl, sockets, pdo_mysql
           tools: composer:v2
           coverage: none
@@ -59,8 +65,8 @@ jobs:
 
       - name: Copy module into Magento
         run: |
-          mkdir -p magento/app/code
-          cp -R . magento/app/code
+          mkdir -p magento/app/code/${{ env.vendor-name }}/${{ env.module-name }}
+          rsync -av --exclude=magento . magento/app/code/${{ env.vendor-name }}/${{ env.module-name }}
 
       - name: Install Magento dependencies
         working-directory: magento
