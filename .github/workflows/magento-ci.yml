@@ -45,6 +45,12 @@ jobs:
           tools: composer:v2
           coverage: none
 
+      - name: Restore Composer cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ steps.php.outputs.version }}
+
       - name: Configure Magento Composer auth
         run: |
           mkdir -p ~/.composer
@@ -65,7 +71,15 @@ jobs:
           composer config --global audit.ignore "*"
           composer config --global audit.abandoned ignore
 
+      - name: Restore Magento cache
+        id: magento-cache
+        uses: actions/cache@v4
+        with:
+          path: magento
+          key: magento-${{ matrix.magento-version }}-php-${{ steps.php.outputs.version }}
+
       - name: Create Magento ${{ matrix.magento-version }}
+        if: steps.magento-cache.outputs.cache-hit != 'true'
         run: |
           composer create-project \
             --repository-url=https://repo.magento.com/ \
