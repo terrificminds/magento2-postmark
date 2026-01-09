@@ -1,0 +1,99 @@
+name: Magento 2 Module CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  magento-tests:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - magento-version: 2.4.5
+            php-version: 8.1
+          - magento-version: 2.4.6
+            php-version: 8.2
+          - magento-version: 2.4.7
+            php-version: 8.3
+          - magento-version: 2.4.8
+            php-version: 8.4
+        tool: [phpcs, phpmd, phpstan, phpunit]
+
+    name: Magento ${{ matrix.magento-version }} (PHP ${{ matrix.php-version }}) – ${{ matrix.tool }}
+
+    steps:
+      - name: Checkout module code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: mbstring, intl, bcmath, soap, xsl, sockets, pdo_mysql
+          tools: composer:v2
+          coverage: none
+
+      - name: Configure Magento Composer auth
+        run: |
+          mkdir -p ~/.composer
+          cat <<EOF > ~/.composer/auth.json
+          {
+            "http-basic": {
+              "repo.magento.com": {
+                "username": "${{ secrets.MAGENTO_PUBLIC_KEY }}",
+                "password": "${{ secrets.MAGENTO_PRIVATE_KEY }}"
+              }
+            }
+          }
+          EOF
+
+      - name: Create Magento ${{ matrix.magento-version }}
+        run: |
+          composer create-project \
+            --repository-url=https://repo.magento.com/ \
+            magento/project-community-edition=${{ matrix.magento-version }} \
+            magento
+
+      - name: Copy module into Magento
+        run: |
+          mkdir -p magento/app/code
+          cp -R . magento/app/code
+
+      - name: Install Magento dependencies
+        working-directory: magento
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Run PHPCS
+        if: matrix.tool == 'phpcs'
+        working-directory: magento
+        run: |
+          vendor/bin/phpcs \
+            app/code \
+            --standard=app/code/**/phpcs.xml
+
+      - name: Run PHPMD
+        if: matrix.tool == 'phpmd'
+        working-directory: magento
+        run: |
+          vendor/bin/phpmd \
+            app/code \
+            text \
+            app/code/**/phpmd.xml
+
+      - name: Run PHPStan
+        if: matrix.tool == 'phpstan'
+        working-directory: magento
+        run: |
+          vendor/bin/phpstan analyse \
+            app/code \
+            -c app/code/**/phpstan.neon
+
+      - name: Run PHPUnit (Unit tests)
+        if: matrix.tool == 'phpunit'
+        working-directory: magento
+        run: |
+          vendor/bin/phpunit \
+            -c app/code/**/phpunit.xml
