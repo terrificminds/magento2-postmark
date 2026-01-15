@@ -19,44 +19,67 @@
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
+declare(strict_types=1);
+
 namespace Ripen\Postmark\Model\Transport;
 
-use Psr\Log\LogLevel;
+use Magento\Framework\Serialize\Serializer\Json as JsonSerializer;
+use Laminas\Http\Response;
+use Laminas\Http\Client;
+use Laminas\Http\Request;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Address;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Part\AbstractPart;
+use Symfony\Component\Mime\Part\AbstractMultipartPart;
+use Symfony\Component\Mime\Part\TextPart;
+use Symfony\Component\Mime\Part\DataPart;
+use Symfony\Component\Mime\RawMessage;
+use Symfony\Component\Mailer\Envelope;
+use Symfony\Component\Mime\Header\HeaderInterface;
+use Ripen\Postmark\Helper\Data;
 use Ripen\Postmark\Model\Transport\Exception as PostmarkTransportException;
-use Laminas\Mime\Mime;
+use Psr\Log\LogLevel;
 
-class Postmark implements \Laminas\Mail\Transport\TransportInterface
+class Postmark implements MailerInterface
 {
     /**
      * Postmark API Uri
      */
-    const API_URI = 'https://api.postmarkapp.com/';
+    protected const string API_URI = 'https://api.postmarkapp.com/';
 
     /**
      * Limit of recipients per message in total.
      */
-    const RECIPIENTS_LIMIT = 20;
+    protected const int RECIPIENTS_LIMIT = 20;
 
     /**
      * Postmark API key
      *
-     * @var string
+     * @var string|null
      */
-    protected $apiKey = null;
+    protected ?string $apiKey = null;
 
     /**
-     * @var \Ripen\Postmark\Helper\Data
+     * @var Data
      */
-    protected $helper;
+    protected Data $helper;
 
     /**
-     * @param \Ripen\Postmark\Helper\Data $helper
-     * @throws \Ripen\Postmark\Model\Transport\Exception
+     * @var JsonSerializer
+     */
+    private JsonSerializer $jsonSerializer;
+
+    /**
+     * @param Data $helper
+     * @param JsonSerializer $jsonSerializer
      */
     public function __construct(
-        \Ripen\Postmark\Helper\Data $helper
+        Data $helper,
+        JsonSerializer $jsonSerializer
     ) {
         $this->helper = $helper;
+        $this->jsonSerializer = $jsonSerializer;
 
         $apiKey = $this->helper->getApiKey();
         if (empty($apiKey)) {
@@ -68,12 +91,13 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
     /**
      * Send request to Postmark service
      *
-     * @link http://developer.postmarkapp.com/developer-build.html
-     * @param \Laminas\Mail\Message $message
+     * @param Email|RawMessage $message
+     * @param Envelope|null $envelope
      * @return void
-     * @throws \Ripen\Postmark\Model\Transport\Exception
+     * @throws PostmarkTransportException
+     * @link https://postmarkapp.com/developer/user-guide/send-email-with-api
      */
-    public function send(\Laminas\Mail\Message $message)
+    public function send(Email|RawMessage $message, ?Envelope $envelope = null): void
     {
         $recipients = $this->getRecipients($message);
         $bodyVersions = $this->getBody($message);
@@ -82,8 +106,8 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
             'From' => $this->getFrom($message),
             'Subject' => $this->getSubject($message),
             'ReplyTo' => $this->getReplyTo($message),
-            'HtmlBody' => $bodyVersions[Mime::TYPE_HTML],
-            'TextBody' => $bodyVersions[Mime::TYPE_TEXT],
+            'HtmlBody' => $bodyVersions['text/html'],
+            'TextBody' => $bodyVersions['text/plain'],
             'Attachments' => $this->getAttachments($message),
             'Tag' => $this->getTags($message),
         ];
@@ -91,16 +115,20 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
         $errorMessage = null;
         try {
             $response = $this->prepareHttpClient('/email')
-                ->setMethod(\Laminas\Http\Request::METHOD_POST)
-                ->setRawBody(json_encode($data))
+                ->setMethod(Request::METHOD_POST)
+                ->setRawBody($this->jsonSerializer->serialize($data))
                 ->send();
             $this->parseResponse($response);
-        } catch (\Throwable $e) {
+        } catch (PostmarkTransportException $e) {
             $errorMessage = $e->getMessage();
             throw $e;
         } finally {
             if ($this->helper->isDebugMode()) {
-                $debugData = json_encode(array_intersect_key($data, array_flip(['From', 'Subject', 'ReplyTo', 'Tag'])));
+                $debugData = $this->jsonSerializer->serialize(
+                    array_intersect_key($data,
+                        array_flip(['From', 'Subject', 'ReplyTo', 'Tag'])
+                    )
+                );
                 $debugStatus = $errorMessage ? "failed to send with error '$errorMessage'" : 'sent';
                 $this->helper->log("Postmark email $debugStatus: $debugData", LogLevel::DEBUG);
             }
@@ -108,12 +136,12 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
     }
 
     /**
-     * Get a HTTP client instance
+     * Get an HTTP client instance
      *
      * @param string $path
-     * @return \Laminas\Http\Client
+     * @return Client
      */
-    protected function prepareHttpClient($path)
+    protected function prepareHttpClient(string $path): Client
     {
         return $this->getHttpClient()->setUri(self::API_URI . $path);
     }
@@ -121,11 +149,11 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
     /**
      * Returns a HTTP client object
      *
-     * @return \Laminas\Http\Client
+     * @return Client
      */
-    public function getHttpClient()
+    public function getHttpClient(): Client
     {
-        $client = new \Laminas\Http\Client();
+        $client = new Client();
         $client->setHeaders([
             'Accept' => 'application/json',
             'Content-Type' => 'application/json',
@@ -140,32 +168,42 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
      *
      * @see https://postmarkapp.com/developer/api/overview#response-codes  (possible HTTP status codes)
      *
-     * @param \Laminas\Http\Response $response
+     * @param Response $response
      * @return array
-     * @throws \Ripen\Postmark\Model\Transport\Exception
+     * @throws Exception
      */
-    protected function parseResponse(\Laminas\Http\Response $response)
+    protected function parseResponse(Response $response): array
     {
-        $result = json_decode($response->getBody(), true);
+        $result = $this->jsonSerializer->unserialize($response->getBody());
 
         if ($response->isClientError()) {
 
             $errorCode = $result['ErrorCode'] ?? 'Unknown';
             $errorMessage = $result['Message'] ?? 'Unknown';
 
-            switch ($response->getStatusCode()) {
-                case 401:
-                    throw new PostmarkTransportException('Postmark request error: Unauthorized - Missing or incorrect API Key header.');
-                case 422:
-
-                    throw new PostmarkTransportException(sprintf('Postmark request error: Unprocessable Entity - API error code %s, message: %s', $errorCode, $errorMessage));
-                case 500:
-                    throw new PostmarkTransportException('Postmark request error: Postmark Internal Server Error');
-                case 503:
-                    throw new PostmarkTransportException('Postmark request error: Service Unavailable (planned service outage)');
-                default:
-                    throw new PostmarkTransportException(sprintf('Unknown error during request to Postmark server - API error code %s, message: %s', $errorCode, $errorMessage));
-            }
+            throw match ($response->getStatusCode()) {
+                401 => new PostmarkTransportException(
+                    'Postmark request error: Unauthorized - Missing or incorrect API Key header.'
+                ),
+                422 => new PostmarkTransportException(
+                    sprintf(
+                        'Postmark request error: Unprocessable Entity - API error code %s, message: %s',
+                        $errorCode, $errorMessage
+                    )
+                ),
+                500 => new PostmarkTransportException(
+                    'Postmark request error: Postmark Internal Server Error'
+                ),
+                503 => new PostmarkTransportException(
+                    'Postmark request error: Service Unavailable (planned service outage)'
+                ),
+                default => new PostmarkTransportException(
+                    sprintf(
+                        'Unknown error during request to Postmark server - API error code %s, message: %s',
+                        $errorCode, $errorMessage
+                    )
+                ),
+            };
         }
 
         if (! is_array($result)) {
@@ -177,20 +215,23 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
     /**
      * Get mail From
      *
-     * @param \Laminas\Mail\Message $message
+     * @param Email $message
      * @return string|null
      */
-    public function getFrom(\Laminas\Mail\Message $message)
+    public function getFrom(Email $message): ?string
     {
         $sender = $message->getSender();
-        if ($sender instanceof \Laminas\Mail\Address\AddressInterface) {
+        if ($sender instanceof Address) {
             $name = $sender->getName();
-            $address = $sender->getEmail();
+            $address = $sender->getAddress();
         } else {
             $from = $message->getFrom();
-            if (count($from)) {
-                $name = $from->rewind()->getName();
-                $address = $from->rewind()->getEmail();
+            $name = null;
+            $address = null;
+
+            if (!empty($from) && $from[0] instanceof Address) {
+                $name = $from[0]->getName();
+                $address = $from[0]->getAddress();
             }
         }
 
@@ -202,16 +243,16 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
     /**
      * Get mail recipients (To, Cc, and Bcc)
      *
-     * @param \Laminas\Mail\Message $message
+     * @param Email $message
      * @return array
-     * @throws \Ripen\Postmark\Model\Transport\Exception
+     * @throws PostmarkTransportException
      */
-    public function getRecipients(\Laminas\Mail\Message $message)
+    public function getRecipients(Email $message): array
     {
         $recipients = [
-            'To' => $this->addressListToArray($message->getTo()),
-            'Cc' => $this->addressListToArray($message->getCc()),
-            'Bcc' => $this->addressListToArray($message->getBcc())
+            'To' => $this->addressesToEmails($message->getTo()),
+            'Cc' => $this->addressesToEmails($message->getCc()),
+            'Bcc' => $this->addressesToEmails($message->getBcc()),
         ];
 
         $totalRecipients = array_sum(array_map('count', $recipients));
@@ -228,37 +269,43 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
             );
         }
 
-        return array_map(function ($addresses) { return implode(',', $addresses); }, $recipients);
+        return [
+            'To' => implode(',', $recipients['To']),
+            'Cc' => implode(',', $recipients['Cc']),
+            'Bcc' => implode(',', $recipients['Bcc']),
+        ];
     }
 
     /**
-     * Convert address list to simple array
+     * Convert Symfony Address[] to a simple email string array
      *
-     * @param \Laminas\Mail\AddressList $addressList
-     * @return array
+     * @param Address[] $addresses
+     * @return string[]
      */
-    protected function addressListToArray(\Laminas\Mail\AddressList $addressList)
+    private function addressesToEmails(array $addresses): array
     {
-        $addresses = [];
-        foreach ($addressList as $address) {
-            $addresses[] = $address->getEmail();
+        $emails = [];
+        foreach ($addresses as $address) {
+            if ($address instanceof Address) {
+                $emails[] = $address->getAddress();
+            }
         }
-        return $addresses;
+        return $emails;
     }
 
     /**
      * Get mail Reply To
      *
-     * @param \Laminas\Mail\Message $message
+     * @param Email $message
      * @return string
      */
-    public function getReplyTo(\Laminas\Mail\Message $message)
+    public function getReplyTo(Email $message): string
     {
         $addresses = $message->getReplyTo();
 
         $replyTo = [];
         foreach ($addresses as $address) {
-            $replyTo[] = $address->getEmail();
+            $replyTo[] = $address->getAddress();
         }
 
         return implode(',', $replyTo);
@@ -267,49 +314,32 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
     /**
      * Get mail subject
      *
-     * @param \Laminas\Mail\Message $message
+     * @param Email $message
      * @return string
      */
-    public function getSubject(\Laminas\Mail\Message $message)
+    public function getSubject(Email $message): string
     {
-        /** @var \Laminas\Mail\Header\Subject $subjectHeader */
-        $subjectHeader = $message->getHeaders()->get('Subject');
-
-        if (! $subjectHeader) {
-            return '';
-        }
-
-        return $subjectHeader->getFieldValue();
+        return $message->getSubject();
     }
 
     /**
-     * @param \Laminas\Mail\Message $message
-     * @return array
-     * @throws \Ripen\Postmark\Model\Transport\Exception
+     * @param Email $message
+     * @return array ['text/html': string, 'text/plain': string ]
+     * @throws PostmarkTransportException
      */
-    public function getBody(\Laminas\Mail\Message $message)
+    public function getBody(Email $message): array
     {
         $bodyVersions = [
-            Mime::TYPE_HTML => '',
-            Mime::TYPE_TEXT => ''
+            'text/html' => (string) ($message->getHtmlBody() ?? ''),
+            'text/plain' => (string) ($message->getTextBody() ?? ''),
         ];
 
-        $body = $message->getBody();
-        if ($body instanceof \Laminas\Mime\Message) {
-            $parts = $message->getBody()->getParts();
-            foreach ($parts as $part) {
-                if ($part->getType() == Mime::TYPE_HTML || $part->getType() == Mime::TYPE_TEXT) {
-                    $bodyVersions[$part->getType()] = $part->getRawContent();
-                }
-            }
-        } else {
-            /** @var \Laminas\Mail\Header\ContentType $contentTypeHeader */
-            $contentTypeHeader = $message->getHeaders()->get('ContentType');
-            $contentType = $contentTypeHeader ? $contentTypeHeader->getType() : Mime::TYPE_TEXT;
-            $bodyVersions[$contentType] = (string) $body;
+        if ($bodyVersions['text/html'] === '' && $bodyVersions['text/plain'] === '') {
+            $body = $message->getBody();
+            $this->extractTextBodiesFromPart($body, $bodyVersions);
         }
 
-        if (empty($bodyVersions[Mime::TYPE_HTML]) && empty($bodyVersions[Mime::TYPE_TEXT])) {
+        if ($bodyVersions['text/html'] === '' && $bodyVersions['text/plain'] === '') {
             throw new PostmarkTransportException('No body specified');
         }
 
@@ -317,48 +347,115 @@ class Postmark implements \Laminas\Mail\Transport\TransportInterface
     }
 
     /**
-     * Get mail Tag
+     * @param AbstractPart $part
+     * @param array $bodyVersions
+     * @return void
+     */
+    private function extractTextBodiesFromPart(AbstractPart $part, array &$bodyVersions): void
+    {
+        if ($part instanceof TextPart) {
+            $type = $part->getMediaType() . '/' . $part->getMediaSubtype();
+            if ($type === 'text/html' && $bodyVersions['text/html'] === '') {
+                $bodyVersions['text/html'] = (string) $part->getBody();
+            } elseif ($type === 'text/plain' && $bodyVersions['text/plain'] === '') {
+                $bodyVersions['text/plain'] = (string) $part->getBody();
+            }
+            return;
+        }
+
+        if ($part instanceof AbstractMultipartPart) {
+            foreach ($part->getParts() as $child) {
+                if ($child instanceof AbstractPart) {
+                    $this->extractTextBodiesFromPart($child, $bodyVersions);
+                }
+                if ($bodyVersions['text/html'] !== '' && $bodyVersions['text/plain'] !== '') {
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Get mail Tag(s) from Postmark-Tag headers.
      *
+     * @param Email $message
      * @return string
      */
-    public function getTags(\Laminas\Mail\Message $message)
+    public function getTags(Email $message): string
     {
         $headers = $message->getHeaders();
 
-        $tagsHeaders = $headers->get('Postmark-Tag');
-
-        if (! is_array($tagsHeaders)) $tagsHeaders = [];
+        /** @var HeaderInterface[] $tagHeaders */
+        $tagHeaders = $headers->all('Postmark-Tag');
 
         $tags = [];
-        /** @var \Laminas\Mail\Header\GenericHeader $tagsHeader */
-        foreach ($tagsHeaders as $tagsHeader) {
-            $tags[] = $tagsHeader->getFieldValue();
+        foreach ($tagHeaders as $tagHeader) {
+            // Symfony headers expose the header value via getBodyAsString()
+            $value = trim($tagHeader->getBodyAsString());
+            if ($value !== '') {
+                $tags[] = $value;
+            }
         }
+
         return implode(',', $tags);
     }
 
     /**
      * Get mail Attachments
      *
-     * @param \Laminas\Mail\Message $message
-     * @return array
+     * @param Email $message
+     * @return array<int, array{ContentType: string, Name: string, Content: string}>
      */
-    public function getAttachments(\Laminas\Mail\Message $message)
+    public function getAttachments(Email $message): array
     {
         $body = $message->getBody();
-        if (! $body instanceof \Laminas\Mime\Message) return [];
 
         $attachments = [];
-        $parts = $message->getBody()->getParts();
-        foreach ($parts as $part) {
-            if ($part->getType() !== Mime::TYPE_TEXT && $part->getType() !== Mime::TYPE_HTML) {
-                $attachments[] = [
-                    'ContentType' => $part->getType(),
-                    'Name' => $part->getFileName(),
-                    'Content' => base64_encode($part->getRawContent())
-                ];
+        $this->collectAttachmentsFromPart($body, $attachments);
+
+        return $attachments;
+    }
+
+    /**
+     * @param AbstractPart $part
+     * @param array<int, array{ContentType: string, Name: string, Content: string}> $attachments
+     * @return void
+     */
+    private function collectAttachmentsFromPart(AbstractPart $part, array &$attachments): void
+    {
+        if ($part instanceof DataPart) {
+            $filename = (string) ($part->getFilename() ?? '');
+            if ($filename === '') {
+                // If there's no filename, it's often an inline/embedded part; skip to match old behavior.
+                return;
+            }
+
+            $contentType = $part->getMediaType() . '/' . $part->getMediaSubtype();
+
+            $raw = $part->getBody();
+            if (is_resource($raw)) {
+                $raw = stream_get_contents($raw);
+            }
+
+            $attachments[] = [
+                'ContentType' => $contentType,
+                'Name' => $filename,
+                'Content' => base64_encode((string) $raw),
+            ];
+            return;
+        }
+
+        // Skip textual parts (handled separately by getBody()).
+        if ($part instanceof TextPart) {
+            return;
+        }
+
+        if ($part instanceof AbstractMultipartPart) {
+            foreach ($part->getParts() as $child) {
+                if ($child instanceof AbstractPart) {
+                    $this->collectAttachmentsFromPart($child, $attachments);
+                }
             }
         }
-        return $attachments;
     }
 }

@@ -19,98 +19,95 @@
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
+declare(strict_types=1);
+
 namespace Ripen\Postmark\Helper;
 
-class Data extends \Magento\Framework\App\Helper\AbstractHelper
+use Magento\Framework\App\Helper\AbstractHelper;
+use Magento\Framework\App\Helper\Context;
+use Magento\Store\Model\ScopeInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
+
+class Data extends AbstractHelper
 {
-    const XML_PATH_ENABLED = 'postmark/settings/enabled';
-    const XML_PATH_DEBUG_MODE = 'postmark/settings/debug_mode';
-    const XML_PATH_APIKEY = 'postmark/settings/apikey';
+    protected const string XML_PATH_ENABLED = 'postmark/settings/enabled';
+
+    protected const string XML_PATH_DEBUG_MODE = 'postmark/settings/debug_mode';
+
+    protected const string XML_PATH_APIKEY = 'postmark/settings/apikey';
 
     /**
-     * @var \Psr\Log\LoggerInterface
+     * @var LoggerInterface
      */
-    protected $_logger;
+    protected LoggerInterface $logger;
 
-    /**
-     * @var \Magento\Framework\ObjectManagerInterface
-     */
-    protected $_objectManager;
-
-    /**
-     * @var array
-     */
-    protected $_subscribed;
-
-    /**
-     * @param \Magento\Framework\App\Helper\Context $context
-     * @param \Psr\Log\LoggerInterface $logger
-     * @param \Magento\Framework\ObjectManagerInterface
-     */
     public function __construct(
-        \Magento\Framework\App\Helper\Context $context,
-        \Psr\Log\LoggerInterface $logger,
-        \Magento\Framework\ObjectManagerInterface $objectManager
+        Context $context,
+        LoggerInterface $logger
     ) {
-        $this->_logger = $logger;
-        $this->_objectManager = $objectManager;
-        $this->_subscribed = array();
         parent::__construct($context);
+        $this->logger = $logger;
     }
 
     /**
-     * @param null $store
-     * @return mixed
+     * Returns whether the module is enabled or not
+     *
+     * @return bool
      */
-    public function isEnabled($store = null)
+    public function isEnabled(): bool
     {
-        return $this->scopeConfig->getValue(
+        return (bool)$this->scopeConfig->getValue(
             self::XML_PATH_ENABLED,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
-            $store
+            ScopeInterface::SCOPE_STORE
         );
     }
 
     /**
-     * @param null $store
-     * @return mixed
+     * Returns the API key
+     *
+     * @return string|null
      */
-    public function getApiKey($store = null)
+    public function getApiKey(): ?string
     {
         return $this->scopeConfig->getValue(
             self::XML_PATH_APIKEY,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
-            $store
+            ScopeInterface::SCOPE_STORE
         );
     }
 
     /**
-     * @param null $store
+     * Returns whether the module is in debug mode or not
+     *
      * @return bool
      */
-    public function isDebugMode($store = null)
+    public function isDebugMode(): bool
     {
         return (bool) $this->scopeConfig->getValue(
             self::XML_PATH_DEBUG_MODE,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
-            $store
+            ScopeInterface::SCOPE_STORE
         );
     }
 
     /**
-     * @param null $store
+     * Returns whether the module can be used or not
+     *
      * @return boolean
      */
-    public function canUse($store = null)
+    public function canUse(): bool
     {
-        return $this->isEnabled($store) && $this->getApiKey($store);
+        return $this->isEnabled() && $this->getApiKey();
     }
 
     /**
+     * Logs a message
+     *
      * @param $msg
+     * @param string $level
+     * @return void
      */
-    public function log($msg, $level = \Psr\Log\LogLevel::INFO)
+    public function log($msg, string $level = LogLevel::INFO): void
     {
-        $this->_logger->log($level, $msg);
+        $this->logger->log($level, $msg);
     }
 }

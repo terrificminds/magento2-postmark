@@ -21,6 +21,8 @@
  */
 namespace Ripen\Postmark\Model\Transport;
 
-class Exception extends \Laminas\Mail\Exception\RuntimeException
+use Symfony\Component\Mailer\Exception\RuntimeException;
+
+class Exception extends RuntimeException
 {
 }
