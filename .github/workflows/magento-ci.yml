@@ -108,9 +108,9 @@ jobs:
         working-directory: magento
         run: |
           vendor/bin/phpmd \
-            app/code \
+            "app/code/Ripen/Postmark" \
             ansi \
-            dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml
+            "dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml"
 
       - name: Run PHPStan
         if: matrix.tool == 'phpstan'
