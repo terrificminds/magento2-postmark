@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Ripen\Postmark\Test\Unit\Model\Transport;
 
 use Laminas\Http\Response;
-use Magento\Framework\Filesystem\DriverInterface;
+use Magento\Framework\Filesystem\Driver\File;
 use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -30,9 +30,9 @@ class PostmarkTest extends TestCase
     private Json $jsonSerializerMock;
 
     /**
-     * @var DriverInterface|MockObject
+     * @var File|MockObject
      */
-    private DriverInterface $fileDriverMock;
+    private File $fileDriverMock;
 
     /**
      * @var Postmark
@@ -43,7 +43,7 @@ class PostmarkTest extends TestCase
     {
         $this->helperMock = $this->createMock(Data::class);
         $this->jsonSerializerMock = $this->createMock(Json::class);
-        $this->fileDriverMock = $this->createMock(DriverInterface::class);
+        $this->fileDriverMock = $this->createMock(File::class);
 
         $this->helperMock
             ->method('getApiKey')
