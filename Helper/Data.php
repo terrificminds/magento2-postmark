@@ -42,6 +42,10 @@ class Data extends AbstractHelper
      */
     protected LoggerInterface $logger;
 
+    /**
+     * @param Context $context
+     * @param LoggerInterface $logger
+     */
     public function __construct(
         Context $context,
         LoggerInterface $logger
@@ -102,11 +106,11 @@ class Data extends AbstractHelper
     /**
      * Logs a message
      *
-     * @param $msg
+     * @param string $msg
      * @param string $level
      * @return void
      */
-    public function log($msg, string $level = LogLevel::INFO): void
+    public function log(string $msg, string $level = LogLevel::INFO): void
     {
         $this->logger->log($level, $msg);
     }

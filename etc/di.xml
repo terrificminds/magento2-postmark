@@ -21,8 +21,11 @@
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
 -->
-<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:ObjectManager/etc/config.xsd">
     <type name="Magento\Framework\Mail\TransportInterfaceFactory">
-        <plugin name="postmark-send-message" type="Ripen\Postmark\Model\Plugin\TransportInterfaceFactory" sortOrder="1" />
+        <plugin name="postmark-send-message"
+                type="Ripen\Postmark\Model\Plugin\TransportInterfaceFactory"
+                sortOrder="1" />
     </type>
 </config>

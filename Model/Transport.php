@@ -28,7 +28,6 @@ use Magento\Framework\Mail\EmailMessageInterface;
 use Magento\Framework\Mail\TransportInterface;
 use Magento\Framework\Phrase;
 use Magento\Framework\Mail\Transport as MailTransport;
-use Symfony\Component\Mime\Header\Headers;
 use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Ripen\Postmark\Model\Transport\Postmark;
@@ -55,13 +54,11 @@ class Transport extends MailTransport implements TransportInterface
      * @param Data $helper
      * @param Postmark $transportPostmark
      * @param EmailMessageInterface $message
-     * @param null $parameters
      */
     public function __construct(
         Data $helper,
         Postmark $transportPostmark,
         EmailMessageInterface $message,
-        $parameters = null
     ) {
         $this->helper  = $helper;
         $this->transportPostmark = $transportPostmark;
@@ -69,7 +66,7 @@ class Transport extends MailTransport implements TransportInterface
         if ($this->helper->canUse()) {
             $this->message = $message;
         } else {
-            parent::__construct($message, $parameters);
+            parent::__construct($message);
         }
     }
 
@@ -78,6 +75,9 @@ class Transport extends MailTransport implements TransportInterface
      *
      * @return void
      * @throws MailException
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
+     * @SuppressWarnings(PHPMD.NPathComplexity)
      */
     public function sendMessage(): void
     {
@@ -87,79 +87,103 @@ class Transport extends MailTransport implements TransportInterface
         }
 
         try {
-            $email = new Email();
-            $toLines = [];
-            $ccLines = [];
-            $bccLines = [];
-            $fromLine = null;
-            $subjectLine = null;
-
-            foreach ((array) $this->message->getHeaders() as $line) {
-                $line = trim((string) $line);
-                if ($line === '' || !str_contains($line, ':')) {
-                    continue;
-                }
-
-                // Split "Header-Name: value"
-                [$name, $value] = explode(':', $line, 2);
-                $name = trim($name);
-                $value = ltrim($value);
-
-                if (strcasecmp($name, 'To') === 0) {
-                    $toLines[] = $value;
-                    continue;
-                }
-                if (strcasecmp($name, 'Cc') === 0) {
-                    $ccLines[] = $value;
-                    continue;
-                }
-                if (strcasecmp($name, 'Bcc') === 0) {
-                    $bccLines[] = $value;
-                    continue;
-                }
-                if ($fromLine === null && strcasecmp($name, 'From') === 0) {
-                    $fromLine = $value;
-                    continue;
-                }
-                if ($subjectLine === null && strcasecmp($name, 'Subject') === 0) {
-                    $subjectLine = $value;
-                    continue;
-                }
-
-                $email->getHeaders()->addTextHeader($name, $value);
-            }
-
-            if ($fromLine !== null) {
-                $email->from(Address::create($fromLine));
-            }
-
-            if ($toLines !== []) {
-                $toAddresses = $this->parseMailboxList($toLines);
-                if ($toAddresses !== []) {
-                    $email->to(...$toAddresses);
-                }
-            }
-            if ($ccLines !== []) {
-                $ccAddresses = $this->parseMailboxList($ccLines);
-                if ($ccAddresses !== []) {
-                    $email->cc(...$ccAddresses);
-                }
-            }
-            if ($bccLines !== []) {
-                $bccAddresses = $this->parseMailboxList($bccLines);
-                if ($bccAddresses !== []) {
-                    $email->bcc(...$bccAddresses);
-                }
-            }
-
-            if ($subjectLine !== null) {
-                $email->subject($subjectLine);
-            }
-            $email->setBody($this->message->getBody());
-
+            $email = $this->createEmailFromMessage();
             $this->transportPostmark->send($email);
         } catch (\Exception $e) {
             throw new MailException(new Phrase($e->getMessage()), $e);
+        }
+    }
+
+    /**
+     * Create an Email object from the message
+     *
+     * @return Email
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
+     * @SuppressWarnings(PHPMD.NPathComplexity)
+     */
+    protected function createEmailFromMessage(): Email
+    {
+        $email = new Email();
+
+        $toLines = [];
+        $ccLines = [];
+        $bccLines = [];
+        $fromLine = null;
+        $subjectLine = null;
+
+        foreach ((array) $this->message->getHeaders() as $line) {
+            $line = trim((string) $line);
+            if ($line === '' || !str_contains($line, ':')) {
+                continue;
+            }
+
+            [$name, $value] = explode(':', $line, 2);
+            $name = trim($name);
+            $value = ltrim($value);
+
+            if (strcasecmp($name, 'To') === 0) {
+                $toLines[] = $value;
+                continue;
+            }
+            if (strcasecmp($name, 'Cc') === 0) {
+                $ccLines[] = $value;
+                continue;
+            }
+            if (strcasecmp($name, 'Bcc') === 0) {
+                $bccLines[] = $value;
+                continue;
+            }
+            if ($fromLine === null && strcasecmp($name, 'From') === 0) {
+                $fromLine = $value;
+                continue;
+            }
+            if ($subjectLine === null && strcasecmp($name, 'Subject') === 0) {
+                $subjectLine = $value;
+                continue;
+            }
+
+            $email->getHeaders()->addTextHeader($name, $value);
+        }
+
+        if ($fromLine !== null) {
+            $email->from(Address::create($fromLine));
+        }
+
+        $this->applyRecipients($email, $toLines, $ccLines, $bccLines);
+
+        if ($subjectLine !== null) {
+            $email->subject($subjectLine);
+        }
+
+        $email->setBody($this->message->getBody());
+
+        return $email;
+    }
+
+    /**
+     * Apply recipients to the email object
+     *
+     * @param Email $email
+     * @param array $toLines
+     * @param array $ccLines
+     * @param array $bccLines
+     * @return void
+     */
+    protected function applyRecipients(
+        Email $email,
+        array $toLines,
+        array $ccLines,
+        array $bccLines
+    ): void {
+        if ($toLines !== []) {
+            $email->to(...$this->parseMailboxList($toLines));
+        }
+        if ($ccLines !== []) {
+            $email->cc(...$this->parseMailboxList($ccLines));
+        }
+        if ($bccLines !== []) {
+            $email->bcc(...$this->parseMailboxList($bccLines));
         }
     }
 
@@ -174,6 +198,8 @@ class Transport extends MailTransport implements TransportInterface
     }
 
     /**
+     * Parse a list of mailboxes into an array of Address objects
+     *
      * @param string[] $lines Header values (without the "Xxx:" prefix), e.g. ["a@a.com, b@b.com", "c@c.com"]
      * @return Address[]
      */

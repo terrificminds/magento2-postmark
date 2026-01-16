@@ -24,6 +24,7 @@ declare(strict_types=1);
 namespace Ripen\Postmark\Model\Transport;
 
 use Magento\Framework\Serialize\Serializer\Json as JsonSerializer;
+use Magento\Framework\Filesystem\Driver\File;
 use Laminas\Http\Response;
 use Laminas\Http\Client;
 use Laminas\Http\Request;
@@ -41,6 +42,13 @@ use Ripen\Postmark\Helper\Data;
 use Ripen\Postmark\Model\Transport\Exception as PostmarkTransportException;
 use Psr\Log\LogLevel;
 
+/**
+ * Postmark transport class
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
+ * This class acts as a protocol adapter between Magento, Symfony Mailer,
+ * and the Postmark API, which inherently requires multiple dependencies.
+ */
 class Postmark implements MailerInterface
 {
     /**
@@ -71,15 +79,23 @@ class Postmark implements MailerInterface
     private JsonSerializer $jsonSerializer;
 
     /**
+     * @var File
+     */
+    private File $fileDriver;
+
+    /**
      * @param Data $helper
      * @param JsonSerializer $jsonSerializer
+     * @param File $fileDriver
      */
     public function __construct(
         Data $helper,
-        JsonSerializer $jsonSerializer
+        JsonSerializer $jsonSerializer,
+        File $fileDriver
     ) {
         $this->helper = $helper;
         $this->jsonSerializer = $jsonSerializer;
+        $this->fileDriver = $fileDriver;
 
         $apiKey = $this->helper->getApiKey();
         if (empty($apiKey)) {
@@ -96,6 +112,8 @@ class Postmark implements MailerInterface
      * @return void
      * @throws PostmarkTransportException
      * @link https://postmarkapp.com/developer/user-guide/send-email-with-api
+     *
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function send(Email|RawMessage $message, ?Envelope $envelope = null): void
     {
@@ -125,7 +143,8 @@ class Postmark implements MailerInterface
         } finally {
             if ($this->helper->isDebugMode()) {
                 $debugData = $this->jsonSerializer->serialize(
-                    array_intersect_key($data,
+                    array_intersect_key(
+                        $data,
                         array_flip(['From', 'Subject', 'ReplyTo', 'Tag'])
                     )
                 );
@@ -200,7 +219,8 @@ class Postmark implements MailerInterface
                 default => new PostmarkTransportException(
                     sprintf(
                         'Unknown error during request to Postmark server - API error code %s, message: %s',
-                        $errorCode, $errorMessage
+                        $errorCode,
+                        $errorMessage
                     )
                 ),
             };
@@ -235,7 +255,9 @@ class Postmark implements MailerInterface
             }
         }
 
-        if (empty($address)) throw new PostmarkTransportException('No from address specified');
+        if (empty($address)) {
+            throw new PostmarkTransportException('No from address specified');
+        }
 
         return empty($name) ? $address : "$name <$address>";
     }
@@ -323,20 +345,26 @@ class Postmark implements MailerInterface
     }
 
     /**
+     * Get mail body (HTML and plain text)
+     *
      * @param Email $message
      * @return array ['text/html': string, 'text/plain': string ]
      * @throws PostmarkTransportException
      */
     public function getBody(Email $message): array
     {
-        $bodyVersions = [
-            'text/html' => (string) ($message->getHtmlBody() ?? ''),
-            'text/plain' => (string) ($message->getTextBody() ?? ''),
-        ];
+        try {
+            $bodyVersions = [
+                'text/html' => (string) ($message->getHtmlBody() ?? ''),
+                'text/plain' => (string) ($message->getTextBody() ?? ''),
+            ];
 
-        if ($bodyVersions['text/html'] === '' && $bodyVersions['text/plain'] === '') {
-            $body = $message->getBody();
-            $this->extractTextBodiesFromPart($body, $bodyVersions);
+            if ($bodyVersions['text/html'] === '' && $bodyVersions['text/plain'] === '') {
+                $body = $message->getBody();
+                $this->extractTextBodiesFromPart($body, $bodyVersions);
+            }
+        } catch (\LogicException $e) {
+            throw new PostmarkTransportException('No body specified', 0, $e);
         }
 
         if ($bodyVersions['text/html'] === '' && $bodyVersions['text/plain'] === '') {
@@ -347,9 +375,13 @@ class Postmark implements MailerInterface
     }
 
     /**
+     * Extract text bodies from a message part.
+     *
      * @param AbstractPart $part
      * @param array $bodyVersions
      * @return void
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
     private function extractTextBodiesFromPart(AbstractPart $part, array &$bodyVersions): void
     {
@@ -417,8 +449,10 @@ class Postmark implements MailerInterface
     }
 
     /**
+     * Collect attachments from a message part.
+     *
      * @param AbstractPart $part
-     * @param array<int, array{ContentType: string, Name: string, Content: string}> $attachments
+     * @param array $attachments
      * @return void
      */
     private function collectAttachmentsFromPart(AbstractPart $part, array &$attachments): void
@@ -434,7 +468,16 @@ class Postmark implements MailerInterface
 
             $raw = $part->getBody();
             if (is_resource($raw)) {
-                $raw = stream_get_contents($raw);
+                $handle = $raw;
+
+                try {
+                    // phpcs:disable Magento2.Functions.DiscouragedFunction.Discouraged
+                    $content = stream_get_contents($handle);
+                    // phpcs:enable Magento2.Functions.DiscouragedFunction.Discouraged
+                    $raw = ($content === false) ? '' : $content;
+                } finally {
+                    $this->fileDriver->fileClose($handle);
+                }
             }
 
             $attachments[] = [
