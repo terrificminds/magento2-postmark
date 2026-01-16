@@ -19,113 +19,135 @@
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
+declare(strict_types=1);
+
 namespace Ripen\Postmark\Test\Unit\Helper;
 
-class DataTest extends \PHPUnit\Framework\TestCase
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Framework\App\Helper\Context;
+use PHPUnit\Framework\MockObject\Exception;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
+use Psr\Log\LogLevel;
+use Ripen\Postmark\Helper\Data;
+
+class DataTest extends TestCase
 {
     /**
-     * @var \Ripen\Postmark\Helper\Data
+     * @var MockObject|ScopeConfigInterface
      */
-    private $_helper;
+    private ScopeConfigInterface|MockObject $scopeConfig;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var LoggerInterface|MockObject
      */
-    protected $_scopeConfig;
+    private LoggerInterface|MockObject $logger;
 
     /**
-     * @var \PHPUnit_Framework_MockObject_MockObject
+     * @var Context|MockObject
      */
-    protected $_logger;
+    private Context|MockObject $context;
 
-    protected function setUp()
+    /**
+     * @var Data
+     */
+    private Data $helper;
+
+    /**
+     * @return void
+     * @throws Exception
+     */
+    protected function setUp(): void
     {
-        $objectManagerHelper = new \Magento\Framework\TestFramework\Unit\Helper\ObjectManager($this);
-        $className = 'Ripen\Postmark\Helper\Data';
-        $arguments = $objectManagerHelper->getConstructArguments($className);
+        $this->scopeConfig = $this->createMock(ScopeConfigInterface::class);
+        $this->logger = $this->createMock(LoggerInterface::class);
 
-        $context = $arguments['context'];
-        $this->_scopeConfig = $context->getScopeConfig();
-        $this->_logger = $context->getLogger();
+        $this->context = $this->createMock(Context::class);
+        $this->context->method('getScopeConfig')->willReturn($this->scopeConfig);
 
-        $this->_helper = $objectManagerHelper->getObject($className, $arguments);
+        $this->helper = new Data($this->context, $this->logger);
     }
 
-    public function testIsEnabled()
+    /**
+     * @return void
+     */
+    public function testIsEnabledReturnsBoolFromConfig(): void
     {
-        $store = null;
-        $this->_scopeConfig->expects($this->once())
+        $this->scopeConfig->expects(self::once())
             ->method('getValue')
-            ->will($this->returnValue(true));
-        $this->assertTrue($this->_helper->isEnabled($store));
+            ->with('postmark/settings/enabled', 'store')
+            ->willReturn('1');
+
+        self::assertTrue($this->helper->isEnabled());
     }
 
-    public function testIsNotEnabled()
+    /**
+     * @return void
+     */
+    public function testGetApiKeyReturnsStringOrNull(): void
     {
-        $store = null;
-        $this->_scopeConfig->expects($this->once())
+        $this->scopeConfig->expects(self::once())
             ->method('getValue')
-            ->will($this->returnValue(false));
-        $this->assertFalse($this->_helper->isEnabled($store));
+            ->with('postmark/settings/apikey', 'store')
+            ->willReturn('abc123');
+
+        self::assertSame('abc123', $this->helper->getApiKey());
     }
 
-    public function testGetApiKey()
+    /**
+     * @return void
+     */
+    public function testIsDebugModeReturnsBoolFromConfig(): void
     {
-        $store = null;
-        $this->_scopeConfig->expects($this->once())
+        $this->scopeConfig->expects(self::once())
             ->method('getValue')
-            ->will($this->returnValue('test-api-key'));
-        $this->assertEquals('test-api-key', $this->_helper->getApiKey($store));
+            ->with('postmark/settings/debug_mode', 'store')
+            ->willReturn(0);
+
+        self::assertFalse($this->helper->isDebugMode());
     }
 
-    public function testCanUse()
+    /**
+     * @dataProvider canUseDataProvider
+     */
+    public function testCanUse(bool $enabled, ?string $apiKey, bool $expected): void
     {
-        $store = null;
-        $this->_scopeConfig->expects($this->at(0))
-            ->method('getValue')
-            ->with(\Ripen\Postmark\Helper\Data::XML_PATH_ENABLED)
-            ->will($this->returnValue(true));
+        $this->scopeConfig->method('getValue')->willReturnCallback(
+            static function (string $path) use ($enabled, $apiKey) {
+                return match ($path) {
+                    'postmark/settings/enabled' => $enabled ? '1' : '0',
+                    'postmark/settings/apikey' => $apiKey,
+                    default => null,
+                };
+            }
+        );
 
-        $this->_scopeConfig->expects($this->at(1))
-            ->method('getValue')
-            ->with(\Ripen\Postmark\Helper\Data::XML_PATH_APIKEY)
-            ->will($this->returnValue('test-api-key'));
-
-        $this->assertTrue($this->_helper->canUse($store));
+        self::assertSame($expected, $this->helper->canUse());
     }
 
-    public function testCanUseNoApiKey()
+    /**
+     * @return array[]
+     */
+    public static function canUseDataProvider(): array
     {
-        $store = null;
-        $this->_scopeConfig->expects($this->at(0))
-            ->method('getValue')
-            ->with(\Ripen\Postmark\Helper\Data::XML_PATH_ENABLED)
-            ->will($this->returnValue(true));
-
-        $this->_scopeConfig->expects($this->at(1))
-            ->method('getValue')
-            ->with(\Ripen\Postmark\Helper\Data::XML_PATH_APIKEY)
-            ->will($this->returnValue(null));
-
-        $this->assertFalse($this->_helper->canUse($store));
+        return [
+            'disabled + key' => [false, 'abc123', false],
+            'enabled + no key' => [true, null, false],
+            'enabled + empty key' => [true, '', false],
+            'enabled + key' => [true, 'abc123', true],
+        ];
     }
 
-    public function testCanUseNotEnabled()
+    /**
+     * @return void
+     */
+    public function testLogDelegatesToLogger(): void
     {
-        $store = null;
-        $this->_scopeConfig->expects($this->at(0))
-            ->method('getValue')
-            ->with(\Ripen\Postmark\Helper\Data::XML_PATH_ENABLED)
-            ->will($this->returnValue(false));
+        $this->logger->expects(self::once())
+            ->method('log')
+            ->with(LogLevel::ERROR, 'test message');
 
-        $this->assertFalse($this->_helper->canUse($store));
-    }
-
-    public function testLog()
-    {
-        $this->_logger->expects($this->once())
-            ->method('info');
-
-        $this->_helper->log('Test msg');
+        $this->helper->log('test message', LogLevel::ERROR);
     }
 }
