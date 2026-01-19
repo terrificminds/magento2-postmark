@@ -107,11 +107,26 @@ jobs:
         if: matrix.tool == 'phpmd'
         working-directory: magento
         run: |
-          vendor/bin/phpmd analyze \
-            app/code/Ripen \
-            --format=ansi \
-            --ruleset=dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml
+          PHPMD_VERSION=$(vendor/bin/phpmd --version | grep -oP '\d+\.\d+' | head -1)
+          PHPMD_MAJOR=$(echo $PHPMD_VERSION | cut -d. -f1)
+          PHPMD_MINOR=$(echo $PHPMD_VERSION | cut -d. -f2)
           
+          echo "Detected PHPMD version: $PHPMD_VERSION"
+          
+          if [ "$PHPMD_MAJOR" -ge 2 ] && [ "$PHPMD_MINOR" -ge 15 ]; then
+            echo "Using new PHPMD syntax (2.15+)"
+            vendor/bin/phpmd analyze \
+              app/code/Ripen \
+              --format=text \
+              --ruleset=dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml
+          else
+            echo "Using old PHPMD syntax (<2.15)"
+            vendor/bin/phpmd \
+              app/code/Ripen \
+              text \
+              dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml
+          fi
+
       - name: Enable Magento modules
         if: matrix.tool == 'phpstan' || matrix.tool == 'phpunit'
         working-directory: magento
