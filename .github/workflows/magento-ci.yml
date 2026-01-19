@@ -107,11 +107,11 @@ jobs:
         if: matrix.tool == 'phpmd'
         working-directory: magento
         run: |
-          vendor/bin/phpmd phpmd \
-            app/code/${{ env.vendor-name }}/${{ env.module-name }} \
-            text \
-            dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml
-
+          vendor/bin/phpmd analyze \
+            app/code/Ripen \
+            --format=ansi \
+            --ruleset=dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml
+          
       - name: Enable Magento modules
         if: matrix.tool == 'phpstan' || matrix.tool == 'phpunit'
         working-directory: magento
