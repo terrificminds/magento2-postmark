@@ -108,9 +108,14 @@ jobs:
         working-directory: magento
         run: |
           vendor/bin/phpmd \
-            "app/code/Ripen/Postmark" \
+            app/code/Ripen \
             ansi \
             "dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml"
+
+      - name: Compile Magento code (DI)
+        if: matrix.tool == 'phpunit' || matrix.tool == 'phpstan'
+        working-directory: magento
+        run: php -d memory_limit=-1 bin/magento setup:di:compile
 
       - name: Run PHPStan
         if: matrix.tool == 'phpstan'
