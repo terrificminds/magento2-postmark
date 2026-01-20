@@ -147,8 +147,8 @@ jobs:
 
       - name: Run PHPUnit (Unit tests)
         if: matrix.tool == 'phpunit'
-        working-directory: magento
+        working-directory: magento/dev/tests/unit
         run: |
-          vendor/bin/phpunit \
-            -c dev/tests/unit/phpunit.xml.dist \
-            app/code
+          ../../../vendor/bin/phpunit \
+            -c phpunit.xml.dist \
+            ../../../app/code
