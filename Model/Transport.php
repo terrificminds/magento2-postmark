@@ -142,6 +142,15 @@ class Transport extends MailTransport implements TransportInterface
                 $subjectLine = $value;
                 continue;
             }
+            if (strcasecmp($name, 'Reply-To') === 0) {
+                if (trim($value) !== '') {
+                    $email->getHeaders()->addMailboxListHeader(
+                        'Reply-To',
+                        [Address::create(trim($value))]
+                    );
+                }
+                continue;
+            }
 
             $email->getHeaders()->addTextHeader($name, $value);
         }
