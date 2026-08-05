@@ -19,32 +19,38 @@
  * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
  * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
  */
+declare(strict_types=1);
+
 namespace Ripen\Postmark\Model\Plugin;
+
+use Magento\Framework\Mail\TransportInterface;
+use Ripen\Postmark\Helper\Data;
+use Ripen\Postmark\Model\TransportFactory;
 
 class TransportInterfaceFactory
 {
     /**
      * Transport Factory
      *
-     * @var \Ripen\Postmark\Model\TransportFactory
+     * @var TransportFactory
      */
-    protected $moduleTransportFactory;
+    protected TransportFactory $moduleTransportFactory;
 
     /**
      * Helper class
      *
-     * @var \Ripen\Postmark\Helper\Data
+     * @var Data
      */
-    protected $moduleHelper;
+    protected Data $moduleHelper;
 
     /**
      * TransportBuilder constructor.
-     * @param \Ripen\Postmark\Helper\Data $moduleHelper
-     * @param \Ripen\Postmark\Model\TransportFactory $moduleTransportFactory
+     * @param Data $moduleHelper
+     * @param TransportFactory $moduleTransportFactory
      */
     public function __construct(
-        \Ripen\Postmark\Helper\Data $moduleHelper,
-        \Ripen\Postmark\Model\TransportFactory $moduleTransportFactory
+        Data $moduleHelper,
+        TransportFactory $moduleTransportFactory
     ) {
         $this->moduleHelper = $moduleHelper;
         $this->moduleTransportFactory = $moduleTransportFactory;
@@ -56,28 +62,27 @@ class TransportInterfaceFactory
      * @param \Magento\Framework\Mail\TransportInterfaceFactory $subject
      * @param \Closure $proceed
      * @param array $data
+     * @return TransportInterface
      *
-     * @return \Magento\Framework\Mail\TransportInterface
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function aroundCreate(
         \Magento\Framework\Mail\TransportInterfaceFactory $subject,
         \Closure $proceed,
         array $data = []
-    ) {
+    ): TransportInterface {
         if ($this->isPostmarkEnabled()) {
             return $this->moduleTransportFactory->create($data);
         }
-
-        /** @var \Magento\Framework\Mail\TransportInterface $transport */
         return $proceed($data);
     }
 
     /**
-     * Get status of Postamrk
+     * Get status of Postmark
      *
      * @return bool
      */
-    private function isPostmarkEnabled()
+    private function isPostmarkEnabled(): bool
     {
         return $this->moduleHelper->canUse();
     }

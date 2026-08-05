@@ -1,210 +1,203 @@
 <?php
-/**
- * Postmark integration
- *
- * NOTICE OF LICENSE
- *
- * This source file is subject to the Open Software License (OSL 3.0)
- * that is bundled with this package in the file LICENSE.txt.
- * It is also available through the world-wide-web at this URL:
- * http://opensource.org/licenses/osl-3.0.php
- * If you did not receive a copy of the license and are unable to
- * obtain it through the world-wide-web, please send an email
- * to opensource@ripen.com so we can send you a copy immediately.
- *
- * @category    Ripen
- * @package     Ripen_Postmark
- * @copyright   Copyright (c) SUMO Heavy Industries, LLC
- * @copyright   Copyright (c) Ripen, LLC
- * @notice      The Postmark logo and name are trademarks of Wildbit, LLC
- * @license     http://www.opensource.org/licenses/osl-3.0.php Open Software License (OSL 3.0)
- */
+
+declare(strict_types=1);
+
 namespace Ripen\Postmark\Test\Unit\Model\Transport;
 
-class PostmarkTest extends \PHPUnit\Framework\TestCase
+use Laminas\Http\Response;
+use Magento\Framework\Filesystem\Driver\File;
+use Magento\Framework\Serialize\Serializer\Json;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Ripen\Postmark\Helper\Data;
+use Ripen\Postmark\Model\Transport\Exception as PostmarkTransportException;
+use Ripen\Postmark\Model\Transport\Postmark;
+use Symfony\Component\Mime\Address;
+use Symfony\Component\Mime\Email;
+use Symfony\Component\Mime\Part\DataPart;
+use Symfony\Component\Mime\Part\TextPart;
+
+class PostmarkTest extends TestCase
 {
     /**
-     * @var \Laminas_Http_Client_Adapter_Interface
+     * @var Data|MockObject
      */
-    protected $adapter;
+    private Data $helperMock;
 
     /**
-     * @var \Ripen\Postmark\Model\Transport\Postmark;
+     * @var Json|MockObject
      */
-    protected $transport;
+    private Json $jsonSerializerMock;
 
     /**
-     * @var \Ripen\Postmark\Helper\Data
+     * @var File|MockObject
      */
-    protected $helper;
+    private File $fileDriverMock;
 
-    public function setUp()
+    /**
+     * @var Postmark
+     */
+    private Postmark $postmark;
+
+    protected function setUp(): void
     {
-        $this->adapter = new \Laminas_Http_Client_Adapter_Test();
+        $this->helperMock = $this->createMock(Data::class);
+        $this->jsonSerializerMock = $this->createMock(Json::class);
+        $this->fileDriverMock = $this->createMock(File::class);
 
-        $this->helper = $this->getMockBuilder(\Ripen\Postmark\Helper\Data::class)
-            ->setMethods(['getApiKey'])
-            ->disableOriginalConstructor()
-            ->getMock();
-
-        $this->helper->expects($this->once())
+        $this->helperMock
             ->method('getApiKey')
-            ->will($this->returnValue('test-api-key'));
+            ->willReturn('test-api-key');
 
-        $this->transport = new \Ripen\Postmark\Model\Transport\Postmark($this->helper);
-        $this->transport->getHttpClient()->setAdapter($this->adapter);
+        $this->helperMock
+            ->method('isDebugMode')
+            ->willReturn(false);
+
+        $this->postmark = new Postmark(
+            $this->helperMock,
+            $this->jsonSerializerMock,
+            $this->fileDriverMock
+        );
     }
 
-    public function testSendMail()
+    public function testConstructorThrowsExceptionWhenApiKeyIsMissing(): void
     {
-        $mail = new \Laminas_Mail;
+        $this->expectException(PostmarkTransportException::class);
 
-        $this->adapter->setResponse(
-            "HTTP/1.1 200 OK"        . "\r\n" .
-            "Content-type: text/json" . "\r\n" .
-                                       "\r\n" .
-            '{"success": true}'
+        $helperMock = $this->createMock(Data::class);
+        $helperMock->method('getApiKey')->willReturn(null);
+
+        new Postmark(
+            $helperMock,
+            $this->jsonSerializerMock,
+            $this->fileDriverMock
+        );
+    }
+
+    public function testGetFromUsesSenderAddress(): void
+    {
+        $email = new Email();
+        $email->sender(new Address('sender@example.com', 'Sender'));
+
+        $this->assertEquals(
+            'Sender <sender@example.com>',
+            $this->postmark->getFrom($email)
+        );
+    }
+
+    public function testGetFromThrowsExceptionWhenMissing(): void
+    {
+        $this->expectException(PostmarkTransportException::class);
+
+        $email = new Email();
+        $this->postmark->getFrom($email);
+    }
+
+    public function testGetRecipientsReturnsCommaSeparatedAddresses(): void
+    {
+        $email = new Email();
+        $email->to('a@example.com')
+            ->cc('b@example.com')
+            ->bcc('c@example.com');
+
+        $recipients = $this->postmark->getRecipients($email);
+
+        $this->assertEquals('a@example.com', $recipients['To']);
+        $this->assertEquals('b@example.com', $recipients['Cc']);
+        $this->assertEquals('c@example.com', $recipients['Bcc']);
+    }
+
+    public function testGetRecipientsThrowsExceptionWhenEmpty(): void
+    {
+        $this->expectException(PostmarkTransportException::class);
+
+        $email = new Email();
+        $this->postmark->getRecipients($email);
+    }
+
+    public function testGetBodyReturnsHtmlAndText(): void
+    {
+        $email = new Email();
+        $email->html('<p>Hello</p>');
+        $email->text('Hello');
+
+        $body = $this->postmark->getBody($email);
+
+        $this->assertEquals('<p>Hello</p>', $body['text/html']);
+        $this->assertEquals('Hello', $body['text/plain']);
+    }
+
+    public function testGetBodyExtractsFromMultipart(): void
+    {
+        $email = new Email();
+        $email->setBody(
+            new TextPart('Plain text body', 'utf-8', 'plain')
         );
 
-        $this->transport->setMail($mail);
-        $response = $this->transport->_sendMail();
-        $this->assertNotEmpty($response);
-        $this->assertTrue($response['success']);
+        $body = $this->postmark->getBody($email);
+
+        $this->assertEquals('', $body['text/html']);
+        $this->assertEquals('Plain text body', $body['text/plain']);
     }
 
-    public function testGetHttpClient()
+    public function testGetBodyThrowsExceptionWhenMissing(): void
     {
-        $this->assertInstanceOf('\Laminas_Http_Client', $this->transport->getHttpClient());
+        $this->expectException(PostmarkTransportException::class);
+
+        $email = new Email();
+        $this->postmark->getBody($email);
     }
 
-    public function testGetFrom()
+    public function testGetTagsReturnsCommaSeparatedValues(): void
     {
-        $mail = new \Laminas_Mail;
+        $email = new Email();
+        $email->getHeaders()->addTextHeader('Postmark-Tag', 'order');
+        $email->getHeaders()->addTextHeader('Postmark-Tag', 'invoice');
 
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getFrom());
-
-        $mail->setFrom('test');
-        $this->assertEquals('test', $this->transport->getFrom());
+        $this->assertEquals(
+            'order,invoice',
+            $this->postmark->getTags($email)
+        );
     }
 
-    public function testGetTo()
+    public function testGetAttachmentsReturnsEncodedAttachment(): void
     {
-        $mail = new \Laminas_Mail;
+        $email = new Email();
 
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getTo());
+        $attachment = new DataPart(
+            'file-content',
+            'test.txt',
+            'text/plain'
+        );
 
-        $mail->addTo('test');
-        $this->assertEquals('test', $this->transport->getTo());
+        $email->setBody($attachment);
 
-        $mail->addTo('test1');
-        $this->assertEquals('test,test1', $this->transport->getTo());
+        $attachments = $this->postmark->getAttachments($email);
+
+        $this->assertCount(1, $attachments);
+        $this->assertEquals('test.txt', $attachments[0]['Name']);
+        $this->assertEquals(
+            base64_encode('file-content'),
+            $attachments[0]['Content']
+        );
     }
 
-    public function testGetCc()
+    public function testParseResponseThrowsExceptionOnClientError(): void
     {
-        $mail = new \Laminas_Mail;
+        $this->expectException(PostmarkTransportException::class);
 
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getCc());
+        $response = new Response();
+        $response->setStatusCode(401);
+        $response->setContent(
+            json_encode(['Message' => 'Unauthorized'])
+        );
 
-        $mail->addCc('test');
-        $this->assertEquals('test', $this->transport->getCc());
+        $this->jsonSerializerMock
+            ->method('unserialize')
+            ->willReturn(['Message' => 'Unauthorized']);
 
-        $mail->addCc('test1');
-        $this->assertEquals('test,test1', $this->transport->getCc());
-    }
-
-    public function testGetBcc()
-    {
-        $mail = new \Laminas_Mail;
-
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getBcc());
-
-        $mail->addBcc('test');
-        $this->assertEquals('test', $this->transport->getBcc());
-
-        $mail->addBcc('test1');
-        $this->assertEquals('test,test1', $this->transport->getBcc());
-    }
-
-    public function testGetReplyTo()
-    {
-        $mail = new \Laminas_Mail;
-
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getReplyTo());
-
-        $mail->setReplyTo('test');
-        $this->assertEquals('test', $this->transport->getReplyTo());
-    }
-
-    public function testGetSubject()
-    {
-        $mail = new \Laminas_Mail;
-
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getSubject());
-
-        $mail->setSubject('test');
-        $this->assertEquals('test', $this->transport->getSubject());
-    }
-
-    public function testGetBodyHtml()
-    {
-        $mail = new \Laminas_Mail;
-
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getBodyHtml());
-
-        $mail->setBodyHtml('test html');
-        $this->assertEquals('test html', $this->transport->getBodyHtml());
-    }
-
-    public function testGetBodyText()
-    {
-        $mail = new \Laminas_Mail;
-
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getBodyText());
-
-        $mail->setBodyText('test text');
-        $this->assertEquals('test text', $this->transport->getBodyText());
-    }
-
-    public function testGetTags()
-    {
-        $mail = new \Laminas_Mail;
-
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getTags());
-
-        $mail->addHeader('postmark-tag', 'test', true);
-        $this->assertEquals('test', $this->transport->getTags());
-
-        $mail->addHeader('postmark-tag', 'test1', true);
-        $this->assertEquals('test,test1', $this->transport->getTags());
-    }
-
-    public function testGetAttachements()
-    {
-        $mail = new \Laminas_Mail;
-
-        $this->transport->setMail($mail);
-        $this->assertEmpty($this->transport->getAttachments());
-
-        $at = $mail->createAttachment('test');
-        $at->type        = 'image/gif';
-        $at->disposition = \Laminas_Mime::DISPOSITION_INLINE;
-        $at->encoding    = \Laminas_Mime::ENCODING_BASE64;
-        $at->filename    = 'test.gif';
-        $this->transport->setMail($mail);
-
-        $attachements = $this->transport->getAttachments();
-        $this->assertNotEmpty($attachements);
-        $this->assertEquals('image/gif', $attachements[0]['ContentType']);
-        $this->assertEquals('test.gif', $attachements[0]['Name']);
+        $reflection = new \ReflectionMethod(Postmark::class, 'parseResponse');
+        $reflection->setAccessible(true);
+        $reflection->invoke($this->postmark, $response);
     }
 }

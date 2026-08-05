@@ -1,0 +1,154 @@
+name: Magento 2 Module CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  magento-tests:
+    runs-on: ubuntu-latest
+
+    env:
+      vendor-name: Ripen
+      module-name: Postmark
+      COMPOSER_NO_AUDIT: 1
+      COMPOSER_NO_INTERACTION: 1
+      COMPOSER_PROCESS_TIMEOUT: 0
+
+    strategy:
+      fail-fast: false
+      matrix:
+        magento-version: [2.4.5, 2.4.6, 2.4.7, 2.4.8]
+        tool: [phpcs, phpmd, phpstan, phpunit]
+
+    name: Magento ${{ matrix.magento-version }} – ${{ matrix.tool }}
+
+    steps:
+      - name: Checkout module code
+        uses: actions/checkout@v4
+
+      - name: Resolve PHP version
+        id: php
+        run: |
+          case "${{ matrix.magento-version }}" in
+            2.4.5) echo "version=8.1" >> $GITHUB_OUTPUT ;;
+            2.4.6) echo "version=8.2" >> $GITHUB_OUTPUT ;;
+            2.4.7) echo "version=8.3" >> $GITHUB_OUTPUT ;;
+            2.4.8) echo "version=8.4" >> $GITHUB_OUTPUT ;;
+          esac
+
+      - name: Setup PHP ${{ steps.php.outputs.version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ steps.php.outputs.version }}
+          extensions: mbstring, intl, bcmath, soap, xsl, sockets, pdo_mysql
+          tools: composer:v2
+          coverage: none
+
+      - name: Restore Composer cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ runner.os }}-${{ steps.php.outputs.version }}
+
+      - name: Configure Magento Composer auth
+        run: |
+          mkdir -p ~/.composer
+          cat <<EOF > ~/.composer/auth.json
+          {
+            "http-basic": {
+              "repo.magento.com": {
+                "username": "${{ secrets.MAGENTO_PUBLIC_KEY }}",
+                "password": "${{ secrets.MAGENTO_PRIVATE_KEY }}"
+              }
+            }
+          }
+          EOF
+
+      - name: Disable Composer audit blocking
+        run: |
+          composer config --global audit.block-insecure false
+          composer config --global audit.ignore "*"
+          composer config --global audit.abandoned ignore
+
+      - name: Restore Magento cache
+        id: magento-cache
+        uses: actions/cache@v4
+        with:
+          path: magento
+          key: magento-${{ matrix.magento-version }}-php-${{ steps.php.outputs.version }}
+
+      - name: Create Magento ${{ matrix.magento-version }}
+        if: steps.magento-cache.outputs.cache-hit != 'true'
+        run: |
+          composer create-project \
+            --repository-url=https://repo.magento.com/ \
+            magento/project-community-edition=${{ matrix.magento-version }} \
+            magento
+
+      - name: Copy module into Magento
+        run: |
+          mkdir -p magento/app/code/${{ env.vendor-name }}/${{ env.module-name }}
+          rsync -av --exclude=magento . magento/app/code/${{ env.vendor-name }}/${{ env.module-name }}
+
+      - name: Install Magento dependencies
+        working-directory: magento
+        run: composer install --no-interaction --no-progress --no-ansi --prefer-dist
+
+      - name: Run PHPCS
+        if: matrix.tool == 'phpcs'
+        working-directory: magento
+        run: |
+          vendor/bin/phpcs \
+            app/code \
+            --standard=Magento2
+
+      - name: Run PHPMD
+        if: matrix.tool == 'phpmd'
+        working-directory: magento
+        run: |
+          PHPMD_VERSION=$(vendor/bin/phpmd --version | grep -oP '\d+\.\d+' | head -1)
+          PHPMD_MAJOR=$(echo $PHPMD_VERSION | cut -d. -f1)
+          PHPMD_MINOR=$(echo $PHPMD_VERSION | cut -d. -f2)
+          
+          echo "Detected PHPMD version: $PHPMD_VERSION"
+          
+          if [ "$PHPMD_MAJOR" -ge 2 ] && [ "$PHPMD_MINOR" -ge 15 ]; then
+            echo "Using new PHPMD syntax (2.15+)"
+            vendor/bin/phpmd analyze \
+              app/code/Ripen \
+              --format=text \
+              --ruleset=dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml
+          else
+            echo "Using old PHPMD syntax (<2.15)"
+            vendor/bin/phpmd \
+              app/code/Ripen \
+              text \
+              dev/tests/static/testsuite/Magento/Test/Php/_files/phpmd/ruleset.xml
+          fi
+
+      - name: Enable Magento modules
+        if: matrix.tool == 'phpstan' || matrix.tool == 'phpunit'
+        working-directory: magento
+        run: php bin/magento module:enable --all --force
+
+      - name: Compile DI
+        if: matrix.tool == 'phpstan' || matrix.tool == 'phpunit'
+        working-directory: magento
+        run: php -d memory_limit=-1 bin/magento setup:di:compile
+
+      - name: Run PHPStan
+        if: matrix.tool == 'phpstan'
+        working-directory: magento
+        run: |
+          vendor/bin/phpstan analyse \
+            app/code \
+            --level=1
+
+      - name: Run PHPUnit (Unit tests)
+        if: matrix.tool == 'phpunit'
+        working-directory: magento/dev/tests/unit
+        run: |
+          ../../../vendor/bin/phpunit \
+            -c phpunit.xml.dist \
+            ../../../app/code
